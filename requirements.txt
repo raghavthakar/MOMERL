@@ -21,7 +21,9 @@ openssl=3.3.2=hb9d3cd8_0
 pip=24.3.1=pyh145f28c_0
 python=3.13.0=h9ebbce0_100_cp313
 python_abi=3.13=5_cp313
+pyyaml=6.0.2=py313h536fd9c_1
 readline=8.2=h8228510_1
 tk=8.6.13=noxft_h4845f30_101
 tzdata=2024b=hc8b5060_0
 xz=5.2.6=h166bdaf_0
+yaml=0.2.5=h7f98852_2
