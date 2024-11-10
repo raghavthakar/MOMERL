@@ -105,6 +105,7 @@ class MORoverEnv:
         # Initialize environment properties
         self.num_objs = config_data['Meta']['num_objs']
         self.dimensions = config_data['Environment']['dimensions']
+        self.ep_length = config_data['Environment']['ep_length']
         self.timestep_penalty = config_data['Environment']['timestep_penalty']
 
         # Initialize POIs and store initial configuration
@@ -323,3 +324,9 @@ class MORoverEnv:
             observations_list.append(observation)
 
         return observations_list
+
+    def get_ep_length(self):
+        """
+        Get the length of the episode of this instance of the MORoverEnv domain.
+        """
+        return self.ep_length
