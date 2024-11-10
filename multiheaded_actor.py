@@ -32,15 +32,15 @@ class MultiHeadActor(nn.Module):
         self.apply(self.weights_init_policy_fn)
 
     def clean_action(self, state, head=-1):
-        """Method to forward propagate through the actor's graph
+        """
+        Method to forward propagate through the actor's graph
 
-            Parameters:
-                  input (tensor): states
+        Parameters:
+                input (tensor): state
+                input (int): head_number
 
-            Returns:
-                  action (tensor): actions
-
-
+        Returns:
+                action (tensor): actions
         """
 
         x = torch.tanh(self.linear1(state))
@@ -48,7 +48,7 @@ class MultiHeadActor(nn.Module):
         mean = torch.tanh(self.mean(x))
 
         if head == -1:
-            return mean
+            return mean # return the whole output layer if head is not specified
 
         else:
             start = head * self.num_actions
