@@ -29,7 +29,7 @@ class MultiHeadActor(nn.Module):
         self.mean = nn.Linear(hidden_size, num_actions * num_heads)
         self.noise = torch.Tensor(num_actions * num_heads)
 
-        self.apply(weights_init_policy_fn)
+        self.apply(self.weights_init_policy_fn)
 
     def clean_action(self, state, head=-1):
         """Method to forward propagate through the actor's graph
@@ -80,13 +80,13 @@ class MultiHeadActor(nn.Module):
 
         return minimum, maximum, mean
 
-# Initialize Policy weights
-def weights_init_policy_fn(m):
-    classname = m.__class__.__name__
+    # Initialize Policy weights
+    def weights_init_policy_fn(m):
+        classname = m.__class__.__name__
 
-    if classname.find('Linear') != -1:
-        torch.nn.init.xavier_uniform_(m.weight, gain=0.5)
-        torch.nn.init.constant_(m.bias, 0)
+        if classname.find('Linear') != -1:
+            torch.nn.init.xavier_uniform_(m.weight, gain=0.5)
+            torch.nn.init.constant_(m.bias, 0)
 
 if __name__ == "__main__":
 
