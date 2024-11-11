@@ -15,13 +15,13 @@ class POI:
         - reward (float or int): Reward for successful observation (non-negative).
         - repeat (bool): Whether the POI can be observed more than once in an episode.
         """
-        if not (isinstance(obj, int, np.int16, np.int32, np.int64) and obj > 0):
+        if not (isinstance(obj, (int, np.int16, np.int32, np.int64)) and obj > 0):
             raise ValueError('Objective for POI must be an integer > 0.')
         if not (isinstance(location, list)):
             raise ValueError('Location must be a list of positive numbers.')
         if not ((isinstance(radius, (float, int, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and radius >= 0)):
             raise ValueError('Radius must be a non-negative number.')
-        if not (isinstance(coupling, int, np.int16, np.int32, np.int64) and coupling >= 0):
+        if not (isinstance(coupling, (int, np.int16, np.int32, np.int64)) and coupling >= 0):
             raise ValueError('Coupling must be a non-negative integer.')
         if not isinstance(obs_window, list):
             raise ValueError('Observation window must be a list.')
@@ -255,7 +255,7 @@ class MORoverEnv:
         for idx, (rover_pos, num_sensors, obs_radius) in enumerate(zip(rover_locations, num_sensors_list, observation_radius_list)):
             if not (isinstance(rover_pos, list) and len(rover_pos) == num_dimensions):
                 raise ValueError(f"Rover position at index {idx} must be a list of length {num_dimensions}.")
-            if not isinstance(num_sensors, int, np.int16, np.int32, np.int64) or num_sensors <= 0:
+            if not isinstance(num_sensors, (int, np.int16, np.int32, np.int64)) or num_sensors <= 0:
                 raise ValueError(f"Number of sensors for rover at index {idx} must be a positive integer.")
             if not (isinstance(obs_radius, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and obs_radius >= 0):
                 raise ValueError(f"Observation radius for rover at index {idx} must be a non-negative number.")
