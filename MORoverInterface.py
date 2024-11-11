@@ -36,8 +36,8 @@ class MORoverInterface():
         self.rover_env.reset() # reset the rover env
 
         for t in range(ep_length):
-            print(agent_locations)
-            
+            # print(agent_locations)
+
             observations = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii) # get each agent's observation at the current position
             
             observations_tensor = torch.tensor(observations, dtype=torch.float32) # Convert observations to a torch tensor (required for the actor model)# Convert observations to a torch tensor (required for the actor model)
@@ -58,3 +58,5 @@ class MORoverInterface():
                 agent_moves.append(scaled_action)
   
             agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes)
+
+        return None, self.rover_env.get_global_rewards(agent_locations, ep_length - 1)
