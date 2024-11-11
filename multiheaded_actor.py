@@ -49,6 +49,10 @@ class MultiHeadActor(nn.Module):
 
         if head == -1:
             return mean # return the whole output layer if head is not specified
+        
+        elif head >= len(mean) / self.num_actions:
+            print("[multiheaded_actor: Index for head in forward pass must not be greater than number of heads. Exiting...")
+            exit()
 
         else:
             start = head * self.num_actions
