@@ -14,12 +14,14 @@ class MultiHeadActor(nn.Module):
             args (object): Parameter class
     """
 
-    def __init__(self, num_inputs, num_actions, hidden_size, num_heads):
+    def __init__(self, num_inputs, num_actions, hidden_size, num_heads, id):
         super(MultiHeadActor, self).__init__()
 
         self.num_heads = num_heads
         self.num_actions = num_actions
         self.hidden_size = hidden_size
+        
+        self.id = id
 
         # Trunk
         self.linear1 = nn.Linear(num_inputs, hidden_size)
