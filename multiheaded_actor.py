@@ -81,7 +81,7 @@ class MultiHeadActor(nn.Module):
         return minimum, maximum, mean
 
     # Initialize Policy weights
-    def weights_init_policy_fn(m):
+    def weights_init_policy_fn(self, m):
         classname = m.__class__.__name__
 
         if classname.find('Linear') != -1:
