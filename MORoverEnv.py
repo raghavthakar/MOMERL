@@ -100,7 +100,7 @@ class MORoverEnv:
         """Load environment configuration from the YAML file."""
         with open(self.config_filename, 'r') as config_file:
             config_data = yaml.safe_load(config_file)
-        print('[MORoverEnv]: YAML config read.')
+            print('[MORoverEnv]: YAML config read.')
 
         # Initialize environment properties
         self.num_objs = config_data['Meta']['num_objs']
