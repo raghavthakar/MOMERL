@@ -57,6 +57,6 @@ class MORoverInterface():
                 # Add scaled action to the list of agent moves
                 agent_moves.append(scaled_action)
   
-            agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes)
+            agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes) # get updated agent locations based on moves
 
         return None, self.rover_env.get_global_rewards(agent_locations, ep_length - 1)
