@@ -1,6 +1,7 @@
 import yaml
 import copy
 import math
+import numpy as np
 
 class POI:
     def __init__(self, obj, location, radius, coupling, obs_window, reward, repeat):
@@ -14,17 +15,17 @@ class POI:
         - reward (float or int): Reward for successful observation (non-negative).
         - repeat (bool): Whether the POI can be observed more than once in an episode.
         """
-        if not (isinstance(obj, int) and obj > 0):
+        if not (isinstance(obj, int, np.int16, np.int32, np.int64) and obj > 0):
             raise ValueError('Objective for POI must be an integer > 0.')
         if not (isinstance(location, list)):
             raise ValueError('Location must be a list of positive numbers.')
-        if not ((isinstance(radius, (float, int)) and radius >= 0)):
+        if not ((isinstance(radius, (float, int, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and radius >= 0)):
             raise ValueError('Radius must be a non-negative number.')
-        if not (isinstance(coupling, int) and coupling >= 0):
+        if not (isinstance(coupling, int, np.int16, np.int32, np.int64) and coupling >= 0):
             raise ValueError('Coupling must be a non-negative integer.')
         if not isinstance(obs_window, list):
             raise ValueError('Observation window must be a list.')
-        if not ((isinstance(reward, (float, int)) and reward >= 0)):
+        if not ((isinstance(reward, (float, int, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and reward >= 0)):
             raise ValueError('Reward must be a non-negative number.')
         if not isinstance(repeat, bool):
             raise ValueError('Repeat must be a boolean.')
@@ -54,12 +55,16 @@ class POI:
         # Type and value checks
         if not isinstance(rov_locations, list):
             raise ValueError("rov_locations must be a list of rover positions.")
+    
         for loc in rov_locations:
-            if not (isinstance(loc, list) and len(loc) == len(self.location)):
+            if not isinstance(loc, list) or len(loc) != len(self.location):
                 raise ValueError("Each rover location must be a list matching the POI's dimensionality.")
-            if not all((isinstance(coord, int) or isinstance(coord, float)) and coord > 0 for coord in loc):
-                raise ValueError("All coordinates must be numbers greater than zero.")
-        if not isinstance(timestep, int) or timestep < 0:
+            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord > 0 for coord in loc):
+                print(loc)
+                raise ValueError("All coordinates in each location must be numbers greater than zero.")
+        
+        # Check that timestep is a non-negative integer
+        if not isinstance(timestep, (int, np.int16, np.int32, np.int64)) or timestep < 0:
             raise ValueError("timestep must be a non-negative integer.")
 
         # Check if the current timestep is within the observation window
@@ -159,7 +164,7 @@ class MORoverEnv:
         for idx, loc in enumerate(rov_locations):
             if not (isinstance(loc, list) and len(loc) == num_dimensions):
                 raise ValueError(f"Rover position at index {idx} must be a list of length {num_dimensions}.")
-            if not all(isinstance(coord, (int, float)) and coord > 0 for coord in loc):
+            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord > 0 for coord in loc):
                 raise ValueError(f"All coordinates for rover at index {idx} must be numbers greater than zero.")
 
         # Initialize an empty local reward list
@@ -250,9 +255,9 @@ class MORoverEnv:
         for idx, (rover_pos, num_sensors, obs_radius) in enumerate(zip(rover_locations, num_sensors_list, observation_radius_list)):
             if not (isinstance(rover_pos, list) and len(rover_pos) == num_dimensions):
                 raise ValueError(f"Rover position at index {idx} must be a list of length {num_dimensions}.")
-            if not isinstance(num_sensors, int) or num_sensors <= 0:
+            if not isinstance(num_sensors, int, np.int16, np.int32, np.int64) or num_sensors <= 0:
                 raise ValueError(f"Number of sensors for rover at index {idx} must be a positive integer.")
-            if not (isinstance(obs_radius, (int, float)) and obs_radius >= 0):
+            if not (isinstance(obs_radius, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and obs_radius >= 0):
                 raise ValueError(f"Observation radius for rover at index {idx} must be a non-negative number.")
 
             observation = []
