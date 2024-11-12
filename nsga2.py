@@ -6,7 +6,7 @@ import random
 import copy
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=3, team_size=3, noise_std=0.5, noise_mean=0):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=3, team_size=3, noise_std=0.5, noise_mean=0, num_objs=2):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -17,8 +17,10 @@ class NSGAII:
         - team_size (int): Number of agents on a team
         - noise_std (float or int): Standard deviation value for noise added during mutation
         - noise_mean (float or int): Mean value for noise added during mutation 
+        - num_objs (int): The number of objectives in the problem
         """
         # MERL hidden size is 100
+        # TODO: fix next_id for multihead actors
 
         assert num_heads >= team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert popsize % 2 == 0, "population size should be even"
@@ -31,6 +33,7 @@ class NSGAII:
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.team_size = team_size
+        self.num_objs = num_objs
 
         self.parent = [mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
@@ -71,12 +74,21 @@ class NSGAII:
         """
         # can use multiprocessing for this later
 
+        # TODO: Don't use key-1 for determining the index of objective
 
         fitnesses = [None] * len(r_set)
         for ind, policy in enumerate(r_set):
-            print(policy)
             traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/new_momerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0, 1, 2])
-            fitnesses[ind] = global_reward
+            # global_reward is a dict where the key is the objective and value is the reward of that objective -> {2:98, 1:45}
+
+            g_list = [None] * self.num_objs
+            # converting the dict to a list
+            for key in global_reward:
+                g_list[key - 1] = -global_reward[key] # Need to do -1 because the objectives in the dict start at 1
+            
+            assert None not in g_list, "One of the objectives was not found in the global_reward dict"
+            
+            fitnesses[ind] = g_list
         
         return fitnesses
     
@@ -92,10 +104,9 @@ class NSGAII:
         """
         new_pop = []
 
-        for front in sorted_policies:
-            for team in front:
-                self.mutate_policy(team[0])
-                new_pop.append(team[0]) # only keeping the policy, not the objective vector
+        for team in sorted_policies:
+            self.mutate_policy(team)
+            new_pop.append(team)
         return new_pop
         
     def evolve_pop(self):
@@ -121,20 +132,22 @@ class NSGAII:
         for ind in ndf:
             sorted_policies.append([(r_set[i], fitnesses[i]) for i in ind]) # tuple of (policy, fitness vector)
         
+        print("sorted policies")
+        print(sorted_policies)
         next_pop = []
         curr_front = 0
-        if(self.prev_pop is None):
+        if(self.offspring is None):
             # first generation, adding all points from r_set (since it's only popsize / 2)
+            mha_policies = [team[0] for front in sorted_policies for team in front]
+            mutated_pop = self.make_new_pop(copy.deepcopy(mha_policies)) # this does mutate the param
 
-            mutated_pop = self.make_new_pop(copy.deepcopy(sorted_policies)) # this does mutate the param
-
-            self.parent = [team[0] for front in sorted_policies for team in front]
+            self.parent = mha_policies
             self.offspring = mutated_pop
 
             return self.parent
         else:
             
-            while((curr_front < len(sorted_policies)) and len(next_pop) + len(sorted_policies[curr_front]) <= (self.popsize // 2)): # TODO: MIGHT NEED TO DO THIS FOR ONLY HALF OF POPSIZE!
+            while((curr_front < len(sorted_policies)) and len(next_pop) + len(sorted_policies[curr_front]) <= (self.popsize // 2)):
                 # We can add all the points from this front
                 for pol in sorted_policies[curr_front]:
                     next_pop.append(pol[0])
@@ -156,15 +169,12 @@ class NSGAII:
             self.parent = next_pop
             self.offspring = self.make_new_pop(copy.deepcopy(next_pop))
 
-
             return self.parent
 
 if __name__ == "__main__":
     evo = NSGAII()
 
-    for i in range(10):
+    for i in range(100):
         print("Gen", i)
         evo.evolve_pop()
     print("done")
-
-        
