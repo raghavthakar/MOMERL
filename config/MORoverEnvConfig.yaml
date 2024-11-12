@@ -5,6 +5,7 @@ Environment:
   dimensions: [100, 100]
   ep_length: 5 # episode length
   timestep_penalty: 0
+  global_reward_mode: "Aggregated" # Options: "Aggregated", "Final"
   pois:
     - obj: 1
       location: [20, 25]

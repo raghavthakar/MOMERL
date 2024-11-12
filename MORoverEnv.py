@@ -59,7 +59,7 @@ class POI:
         for loc in rov_locations:
             if not isinstance(loc, list) or len(loc) != len(self.location):
                 raise ValueError("Each rover location must be a list matching the POI's dimensionality.")
-            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord > 0 for coord in loc):
+            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord >= 0 for coord in loc):
                 print(loc)
                 raise ValueError("All coordinates in each location must be numbers greater than zero.")
         
@@ -112,6 +112,7 @@ class MORoverEnv:
         self.dimensions = config_data['Environment']['dimensions']
         self.ep_length = config_data['Environment']['ep_length']
         self.timestep_penalty = config_data['Environment']['timestep_penalty']
+        self.global_reward_mode = config_data['Environment']['global_reward_mode']
 
         # Initialize POIs and store initial configuration
         self.pois = [POI(**poi) for poi in config_data['Environment']['pois']]
@@ -135,15 +136,18 @@ class MORoverEnv:
 
         Returns:
         - reward_vector (dict): Dictionary where keys are objectives (obj) and values are cumulative rewards for each objective.
+        Returns a zero reward vector if reward mode is Final and the timestep is not ep_length - 1.
         """
         # Initialize the reward vector as a dictionary with objectives as keys and zeroed cumulative rewards
         reward_vector = {poi.obj: 0 for poi in self.pois}
 
-        # Calculate rewards for each POI and update the reward vector
-        for poi in self.pois:
-            reward = poi.get_reward(rov_locations, timestep)
-            if reward > 0:
-                reward_vector[poi.obj] += reward
+        # check the reward mode. only compute reward if the timestep allows it.
+        if self.global_reward_mode == "Aggregated" or (self.global_reward_mode == "Final" and timestep == self.ep_length - 1):
+            # Calculate rewards for each POI and update the reward vector
+            for poi in self.pois:
+                reward = poi.get_reward(rov_locations, timestep)
+                if reward > 0:
+                    reward_vector[poi.obj] += reward
 
         return reward_vector
     
