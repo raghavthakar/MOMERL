@@ -14,6 +14,11 @@ class MORoverInterface():
         self.rover_env = MORoverEnv(rover_config_filename)
         with open(rover_config_filename, 'r') as config_file:
             self.config = yaml.safe_load(config_file)
+    
+    # to perform a key-wise sum of two dicts
+    def _keywise_sum(self, dict1, dict2):
+        return {key: dict1.get(key, 0) + dict2.get(key, 0) for key in set(dict1) | set(dict2)}
+
 
     def rollout(self, mh_actor: MultiHeadActor, active_agents_indices: list):
         """
@@ -33,10 +38,10 @@ class MORoverInterface():
         num_sensors = self.config['Agents']['num_sensors']
         observation_radii = self.config['Agents']['observation_radii']
         max_step_sizes = self.config['Agents']['max_step_sizes']
+        cumulative_global_reward = {}  # Initialize cumulative global reward
         self.rover_env.reset() # reset the rover env
 
         for t in range(ep_length):
-            # print(agent_locations)
 
             observations = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii) # get each agent's observation at the current position
             
@@ -51,12 +56,16 @@ class MORoverInterface():
                 action = action.squeeze(0).detach().numpy() # Convert action tensor to a numpy array without tracking gradient
 
                 norm = np.linalg.norm(action) # get the magnitude of the calculated move
-                scaling_factor = max_step_sizes[i] / norm # the factor by which the moves should be scaled
+                scaling_factor = (max_step_sizes[i] / norm) if norm > 0 else 0# the factor by which the moves should be scaled
                 scaled_action = action * scaling_factor # multiply each member of the action by the scaling factor
 
                 # Add scaled action to the list of agent moves
                 agent_moves.append(scaled_action)
   
             agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes) # get updated agent locations based on moves
+            # print(agent_locations)
 
-        return None, self.rover_env.get_global_rewards(agent_locations, ep_length - 1)
+            global_reward = self.rover_env.get_global_rewards(rov_locations=agent_locations, timestep=t)
+            cumulative_global_reward = self._keywise_sum(cumulative_global_reward, global_reward)
+
+        return None, cumulative_global_reward
