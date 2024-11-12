@@ -76,7 +76,7 @@ class POI:
         for loc in rov_locations:
             # Calculate Euclidean distance in N dimensions
             distance = sum((loc_i - poi_i) ** 2 for loc_i, poi_i in zip(loc, self.location)) ** 0.5
-            if distance <= self.radius:
+            if distance < self.radius:
                 observing_rovers += 1
 
         # Check if enough rovers are observing the POI (coupling condition)
