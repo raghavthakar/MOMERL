@@ -38,34 +38,68 @@ class MORoverInterface():
         num_sensors = self.config['Agents']['num_sensors']
         observation_radii = self.config['Agents']['observation_radii']
         max_step_sizes = self.config['Agents']['max_step_sizes']
+        
         cumulative_global_reward = {}  # Initialize cumulative global reward
+
+        rollout_trajectory = {agent_idx : [] for agent_idx in active_agents_indices} # Initialise the episode's trajectory as a dict (of single agent trajectories)
+
         self.rover_env.reset() # reset the rover env
 
         for t in range(ep_length):
-
             observations = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii) # get each agent's observation at the current position
-            
-            observations_tensor = torch.tensor(observations, dtype=torch.float32) # Convert observations to a torch tensor (required for the actor model)# Convert observations to a torch tensor (required for the actor model)
+            observations_tensor = torch.tensor(observations, dtype=torch.float32) # Convert observations to a torch tensor (required for the actor model)
+
+            local_rewards = self.rover_env.get_local_rewards(agent_locations) # get local rewards for this location configuration of agents
             
             observation_size = len(observations) // len(active_agents_indices) # size of each agent's observation
 
             agent_moves = []
-            for i in range(len(active_agents_indices)):
-                action = mh_actor.clean_action(observations_tensor[observation_size * i : observation_size * (i + 1)], active_agents_indices[i]) # add the agent's actions to the list
-                
-                action = action.squeeze(0).detach().numpy() # Convert action tensor to a numpy array without tracking gradient
+            transitions = {} # transition = {'state' : [], 'action' : [], 'local_reward' : 0, 'next_state' : [], 'done' : False}
 
+            for i, agent_idx in enumerate(active_agents_indices):
+                # Extract the current observation for this agent
+                agent_observation = observations_tensor[i].unsqueeze(0)  # Add batch dimension for the model
+
+                action_tensor = mh_actor.clean_action(observations_tensor[observation_size * i : observation_size * (i + 1)], active_agents_indices[i]) # add the agent's actions to the list
+                action = action_tensor.squeeze(0).detach().numpy() # Convert action tensor to a numpy array without tracking gradient
+
+                # Scale the action to comply with the agent's max step size
                 norm = np.linalg.norm(action) # get the magnitude of the calculated move
                 scaling_factor = (max_step_sizes[i] / norm) if norm > 0 else 0# the factor by which the moves should be scaled
                 scaled_action = action * scaling_factor # multiply each member of the action by the scaling factor
+
+                # Construct the transition dictionary for the current agent
+                transitions[agent_idx] = {
+                    'state': observations[observation_size * i : observation_size * (i + 1)],
+                    'action': scaled_action,
+                    'local_reward' : local_rewards[i],
+                    'next_state': [],
+                    'done': False
+                }
 
                 # Add scaled action to the list of agent moves
                 agent_moves.append(scaled_action)
   
             agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes) # get updated agent locations based on moves
-            # print(agent_locations)
 
+            print(agent_locations)
+            
+            done = (t == ep_length - 1) # is the episode complete?
+
+            # Get the global rweard and update the cumulative global reward
             global_reward = self.rover_env.get_global_rewards(rov_locations=agent_locations, timestep=t)
             cumulative_global_reward = self._keywise_sum(cumulative_global_reward, global_reward)
 
-        return None, cumulative_global_reward
+            # Prepare for next state's observations (after environment update)
+            next_observations = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii)
+
+            # Update each agent's transition dictionary with local reward, next state, and done
+            for i, agent_idx in enumerate(active_agents_indices):
+                transitions[agent_idx]['next_state'] = next_observations[observation_size * i : observation_size * (i + 1)]
+                transitions[agent_idx]['done'] = done
+
+                # Append the transition to the agent's trajectory
+                rollout_trajectory[agent_idx].append(transitions[agent_idx])
+
+
+        return rollout_trajectory, cumulative_global_reward
