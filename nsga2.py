@@ -21,6 +21,7 @@ class NSGAII:
         """
         # MERL hidden size is 100
         # TODO: fix next_id for multihead actors
+        # TODO: add code to insert traj into replay buffer
 
         assert num_heads >= team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert popsize % 2 == 0, "population size should be even"
