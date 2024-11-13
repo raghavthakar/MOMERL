@@ -168,8 +168,8 @@ class MORoverEnv:
         for idx, loc in enumerate(rov_locations):
             if not (isinstance(loc, list) and len(loc) == num_dimensions):
                 raise ValueError(f"Rover position at index {idx} must be a list of length {num_dimensions}.")
-            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord > 0 for coord in loc):
-                raise ValueError(f"All coordinates for rover at index {idx} must be numbers greater than zero.")
+            if not all(isinstance(coord, (int, float, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64)) and coord >= 0 for coord in loc):
+                raise ValueError(f"All coordinates for rover at index", idx, "must be numbers greater than zero.")
 
         # Initialize an empty local reward list
         local_rewards = []
