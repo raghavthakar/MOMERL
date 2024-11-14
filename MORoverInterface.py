@@ -20,13 +20,14 @@ class MORoverInterface():
         return {key: dict1.get(key, 0) + dict2.get(key, 0) for key in set(dict1) | set(dict2)}
 
 
-    def rollout(self, mh_actor: MultiHeadActor, active_agents_indices: list):
+    def rollout(self, mh_actor: MultiHeadActor, active_agents_indices: list, noisy_action=False):
         """
         Perform a rollout of a given multiheaded actor in the MORoverEnv domain.
 
         Parameters:
         - mh_actor (MultiHeadActor)
         - active_agents_indices (list): List of indices that specify which agents/heads in the MHA are active and will be a part of the rollout.
+        - noisy_action (bool): Optional parameter to choose if action should be noisy or clean
 
         Returns:
         - rollout_trajectory (dict): Complete trajectory of the rollout with position, local reward, and action data of each agent.
@@ -60,7 +61,11 @@ class MORoverInterface():
                 # Extract the current observation for this agent
                 agent_observation = observations_tensor[i].unsqueeze(0)  # Add batch dimension for the model
 
-                action_tensor = mh_actor.clean_action(observations_tensor[observation_size * i : observation_size * (i + 1)], active_agents_indices[i]) # add the agent's actions to the list
+                if noisy_action:
+                    action_tensor = mh_actor.noisy_action(observations_tensor[observation_size * i : observation_size * (i + 1)], active_agents_indices[i]) # add the agent's actions to the list
+                else:
+                    action_tensor = mh_actor.clean_action(observations_tensor[observation_size * i : observation_size * (i + 1)], active_agents_indices[i]) # add the agent's actions to the list
+
                 action = action_tensor.squeeze(0).detach().numpy() # Convert action tensor to a numpy array without tracking gradient
 
                 # Scale the action to comply with the agent's max step size
@@ -81,8 +86,6 @@ class MORoverInterface():
                 agent_moves.append(scaled_action)
   
             agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes) # get updated agent locations based on moves
-
-            print(agent_locations)
             
             done = (t == ep_length - 1) # is the episode complete?
 
