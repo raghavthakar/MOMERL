@@ -107,16 +107,7 @@ class MORoverEnv:
             self.config_data = yaml.safe_load(config_file)
             print('[MORoverEnv]: YAML config read.')
 
-        # Initialize environment properties
-        self.num_objs = self.config_data['Meta']['num_objs']
-        self.dimensions = self.config_data['Environment']['dimensions']
-        self.ep_length = self.config_data['Environment']['ep_length']
-        self.timestep_penalty = self.config_data['Environment']['timestep_penalty']
-        self.global_reward_mode = self.config_data['Environment']['global_reward_mode']
-
-        # Initialize POIs and store initial configuration
-        self.pois = [POI(**poi) for poi in self.config_data['Environment']['pois']]
-        self._initial_pois = copy.deepcopy(self.pois)  # Save initial state for reset
+        self._load_config()
     
     def _load_config(self):
         """Load internal environment configuration."""
