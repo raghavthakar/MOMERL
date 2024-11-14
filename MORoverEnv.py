@@ -117,6 +117,7 @@ class MORoverEnv:
         self.ep_length = self.config_data['Environment']['ep_length']
         self.timestep_penalty = self.config_data['Environment']['timestep_penalty']
         self.global_reward_mode = self.config_data['Environment']['global_reward_mode']
+        self.local_reward_kneecap = self.config_data['Environment']['local_reward_kneecap']
 
         # Initialize POIs and store initial configuration
         self.pois = [POI(**poi) for poi in self.config_data['Environment']['pois']]
@@ -189,7 +190,7 @@ class MORoverEnv:
 
             # Inverse of distance as local reward, handle division by zero
             if min_distance > 0:
-                local_reward = 20.0 / min_distance # NOTE: Reward value could be huge
+                local_reward = self.local_reward_kneecap / min_distance # NOTE: Reward value could be huge
             else:
                 local_reward = float('inf')  # If distance is zero, assign infinite reward or a predefined max value
             local_rewards.append(local_reward)

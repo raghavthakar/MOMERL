@@ -1,11 +1,12 @@
 Meta:
   num_objs: 1
-  
+
 Environment:
   dimensions: [100, 100]
-  ep_length: 20 # episode length
+  ep_length: 2  # episode length
   timestep_penalty: 0
-  global_reward_mode: "Aggregated" # Options: "Aggregated", "Final"
+  global_reward_mode: "Aggregated"  # Options: "Aggregated", "Final"
+  local_reward_kneecap: 20.0 # Distance from POI at which local reward is exactly 1 (higher if closer)
   pois:
     - obj: 1
       location: [55, 50]
