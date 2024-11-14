@@ -32,6 +32,8 @@ class MultiHeadActor(nn.Module):
         self.noise = torch.Tensor(num_actions * num_heads)
 
         self.apply(self.weights_init_policy_fn)
+        
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.1)
 
     def clean_action(self, state, head=-1):
         """
