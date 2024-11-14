@@ -99,23 +99,36 @@ class MORoverEnv:
             raise ValueError('Rover configuration filename must be a string.')
 
         self.config_filename = config_filename
-        self._load_config()  # Initial loading of the environment configuration
+        self._read_config()  # Initial loading of the environment configuration
 
-    def _load_config(self):
-        """Load environment configuration from the YAML file."""
+    def _read_config(self):
+        """Read and load environment configuration from the YAML file."""
         with open(self.config_filename, 'r') as config_file:
-            config_data = yaml.safe_load(config_file)
+            self.config_data = yaml.safe_load(config_file)
             print('[MORoverEnv]: YAML config read.')
 
         # Initialize environment properties
-        self.num_objs = config_data['Meta']['num_objs']
-        self.dimensions = config_data['Environment']['dimensions']
-        self.ep_length = config_data['Environment']['ep_length']
-        self.timestep_penalty = config_data['Environment']['timestep_penalty']
-        self.global_reward_mode = config_data['Environment']['global_reward_mode']
+        self.num_objs = self.config_data['Meta']['num_objs']
+        self.dimensions = self.config_data['Environment']['dimensions']
+        self.ep_length = self.config_data['Environment']['ep_length']
+        self.timestep_penalty = self.config_data['Environment']['timestep_penalty']
+        self.global_reward_mode = self.config_data['Environment']['global_reward_mode']
 
         # Initialize POIs and store initial configuration
-        self.pois = [POI(**poi) for poi in config_data['Environment']['pois']]
+        self.pois = [POI(**poi) for poi in self.config_data['Environment']['pois']]
+        self._initial_pois = copy.deepcopy(self.pois)  # Save initial state for reset
+    
+    def _load_config(self):
+        """Load internal environment configuration."""
+        # Initialize environment properties
+        self.num_objs = self.config_data['Meta']['num_objs']
+        self.dimensions = self.config_data['Environment']['dimensions']
+        self.ep_length = self.config_data['Environment']['ep_length']
+        self.timestep_penalty = self.config_data['Environment']['timestep_penalty']
+        self.global_reward_mode = self.config_data['Environment']['global_reward_mode']
+
+        # Initialize POIs and store initial configuration
+        self.pois = [POI(**poi) for poi in self.config_data['Environment']['pois']]
         self._initial_pois = copy.deepcopy(self.pois)  # Save initial state for reset
 
     def reset(self):
@@ -185,7 +198,7 @@ class MORoverEnv:
 
             # Inverse of distance as local reward, handle division by zero
             if min_distance > 0:
-                local_reward = 1.0 / min_distance # NOTE: Reward value could be huge
+                local_reward = 20.0 / min_distance # NOTE: Reward value could be huge
             else:
                 local_reward = float('inf')  # If distance is zero, assign infinite reward or a predefined max value
             local_rewards.append(local_reward)
