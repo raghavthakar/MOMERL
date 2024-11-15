@@ -240,7 +240,7 @@ class MORoverEnv:
 
         return updated_locations
 
-    def generate_observations(self, rover_locations, num_sensors_list, observation_radius_list):
+    def generate_observations(self, rover_locations, num_sensors_list, observation_radius_list, normalise=False):
         """
         Generate observations for all rovers based on their positions, sensors, and observation radii.
 
@@ -248,6 +248,7 @@ class MORoverEnv:
         - rover_locations (list): Positions of each rover. Each position is a list of coordinates.
         - num_sensors_list (list): Number of sensors (cones) for each rover.
         - observation_radius_list (list): Observation radius for each rover.
+        - normalise (bool): Normalise the agent's location wrt environment dimensions
 
         Returns:
         - observations_list (list): List of observations for each rover.
@@ -271,8 +272,11 @@ class MORoverEnv:
 
             observation = []
 
-            # Add the rover's own position
-            observation.extend(rover_pos)
+            # Choose to normalise or not and add the agent location 
+            if not normalise:
+                observation.extend(rover_pos)
+            else:
+                observation.extend(np.divide(rover_pos, self.dimensions))
 
             # Initialize observations
             if num_dimensions == 1:
@@ -344,3 +348,6 @@ class MORoverEnv:
         Get the length of the episode of this instance of the MORoverEnv domain.
         """
         return self.ep_length
+    
+    def get_dimensions(self):
+        return self.dimensions
