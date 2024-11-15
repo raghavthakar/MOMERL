@@ -52,8 +52,6 @@ class MORoverInterface():
             # print("observation list: ", observations_list)
             # Convert observations to a torch tensor for the entire set of agents
             observations_tensor = torch.tensor(observations_list, dtype=torch.float32) 
-
-            local_rewards = self.rover_env.get_local_rewards(agent_locations) # get local rewards for this location configuration of agents
             
             # Each agent's observation: length of observations = number_of_agents
             # so observation for each agent can be found by indexing into the observations_tensor
@@ -89,7 +87,7 @@ class MORoverInterface():
                 transitions[agent_idx] = {
                     'state': observations_list[i],
                     'action': action,
-                    'local_reward' : local_rewards[i],
+                    'local_reward' : None, # Will be applied later
                     'next_state': [],
                     'done': False
                 }
@@ -98,6 +96,8 @@ class MORoverInterface():
                 agent_moves.append(scaled_action)
   
             agent_locations = self.rover_env.update_agent_locations(agent_locations, agent_moves, max_step_sizes) # get updated agent locations based on moves
+
+            local_rewards = self.rover_env.get_local_rewards(agent_locations) # get local rewards for this location configuration of agents
             
             done = (t == ep_length - 1) # is the episode complete?
 
@@ -110,6 +110,7 @@ class MORoverInterface():
 
             # Update each agent's transition dictionary with next state and done
             for i, agent_idx in enumerate(active_agents_indices):
+                transitions[agent_idx]['local_reward'] = local_rewards[i]
                 transitions[agent_idx]['next_state'] = next_observations_list[i] if next_observations_list else []
                 transitions[agent_idx]['done'] = done
 
