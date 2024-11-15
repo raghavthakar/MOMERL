@@ -49,7 +49,7 @@ class MORoverInterface():
 
         for t in range(ep_length):
             observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii, normalise=True) # get each agent's observation at the current position
-            print("observation list: ", observations_list)
+            # print("observation list: ", observations_list)
             # Convert observations to a torch tensor for the entire set of agents
             observations_tensor = torch.tensor(observations_list, dtype=torch.float32) 
 
@@ -88,7 +88,7 @@ class MORoverInterface():
                 # Construct the transition dictionary for the current agent
                 transitions[agent_idx] = {
                     'state': observations_list[i],
-                    'action': scaled_action,
+                    'action': action,
                     'local_reward' : local_rewards[i],
                     'next_state': [],
                     'done': False
