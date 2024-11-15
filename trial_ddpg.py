@@ -1,138 +1,216 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 from copy import deepcopy
-import random
 
 from MORoverEnv import MORoverEnv
 from MORoverInterface import MORoverInterface
 from multiheaded_actor import MultiHeadActor
 
-
 class Critic(nn.Module):
     """
-    Critic model
-
-        Parameters:
-            args (object): Parameter class
+    Critic model for DDPG that estimates the value (Q-function) of a given state-action pair.
     """
-    def __init__(self, num_inputs, num_actions, hidden_size):
+
+    def __init__(self, state_dim, action_dim, hidden_size):
         super(Critic, self).__init__()
 
-        # Q1 architecture
-        self.linear1 = nn.Linear(num_inputs + num_actions, hidden_size)
+        # Critic architecture
+        self.linear1 = nn.Linear(state_dim + action_dim, hidden_size)
         self.linear2 = nn.Linear(hidden_size, hidden_size)
         self.linear3 = nn.Linear(hidden_size, 1)
 
         self.apply(self._weights_init_value_fn)
-
         self.loss_fn = nn.MSELoss()
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.1)
-    
-    # Initialize Policy weights
-    def _weights_init_value_fn(self, m):
-        classname = m.__class__.__name__
-
-        if classname.find('Linear') != -1:
-            torch.nn.init.xavier_uniform_(m.weight, gain=0.5)
-            torch.nn.init.constant_(m.bias, 0)
-
     def forward(self, state, action):
-        x1 = torch.cat([state, action], 1)
-        x1 = torch.tanh(self.linear1(x1))
-        x1 = torch.tanh(self.linear2(x1))
-        x1 = self.linear3(x1)
+        """
+        Forward pass of the Critic.
 
-        return x1
-    
+        Parameters:
+            state (Tensor): The input state.
+            action (Tensor): The input action.
+
+        Returns:
+            Tensor: The estimated Q-value.
+        """
+        x = torch.cat([state, action], 1)  # Combine state and action
+        x = torch.relu(self.linear1(x))
+        x = torch.relu(self.linear2(x))
+        x = self.linear3(x)
+        return x
+
+    def _weights_init_value_fn(self, layer):
+        """
+        Initializes weights for value network layers using Kaiming initialization for ReLU.
+        """
+        if isinstance(layer, nn.Linear):
+            nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+            if layer.bias is not None:
+                nn.init.constant_(layer.bias, 0.0)
+
 class ReplayBuffer:
-    def __init__(self, buff_size=200):
-        self.experiences = []
-        self.buff_size = buff_size
+    """
+    Replay Buffer to store tuples of experiences for training DDPG.
+    """
+
+    def __init__(self, buffer_size=1000):
+        self.buffer = []
+        self.buffer_size = buffer_size
+
+    def add(self, experience):
+        """
+        Add an experience tuple to the replay buffer.
+        """
+        if len(self.buffer) >= self.buffer_size:
+            self.buffer.pop(0)  # Remove oldest experience if buffer is full
+        self.buffer.append(experience)
+
+    def sample(self, batch_size):
+        """
+        Randomly sample a batch of experiences from the replay buffer.
+        """
+        return np.random.choice(self.buffer, size=batch_size, replace=False)
+
+    def clear(self):
+        """
+        Clear the replay buffer.
+        """
+        self.buffer.clear()
+
+    def __len__(self):
+        return len(self.buffer)
 
 class DDPG:
-    def __init__(self, alg_config_filename, rover_config_filename):
-        self.gamma = 0.1
-        self.main_policy = MultiHeadActor(10, 2, 5, 1, 1)
-        self.target_policy = deepcopy(self.main_policy)
-        self.main_critic = Critic(10, 2, 25)
+    """
+    Deep Deterministic Policy Gradient (DDPG) implementation suitable for single-agent continuous control,
+    adapted for multi-headed actor networks.
+    """
+
+    def __init__(self, alg_config_filename, rover_config_filename, state_dim, action_dim, hidden_size=128, gamma=0.99, tau=0.001, actor_lr=1e-3, critic_lr=1e-3):
+        self.gamma = gamma
+        self.tau = tau
+
+        # Initialize main and target networks
+        self.main_actor = MultiHeadActor(num_inputs=state_dim, num_actions=action_dim, hidden_size=hidden_size, num_heads=1)
+        self.target_actor = deepcopy(self.main_actor)
+
+        self.main_critic = Critic(state_dim=state_dim, action_dim=action_dim, hidden_size=hidden_size)
         self.target_critic = deepcopy(self.main_critic)
-        self.rep_buf = ReplayBuffer()
+
+        # Set up optimizers for actor and critic
+        self.actor_optimizer = optim.Adam(self.main_actor.parameters(), lr=actor_lr)
+        self.critic_optimizer = optim.Adam(self.main_critic.parameters(), lr=critic_lr)
+
+        # Replay buffer for experiences
+        self.replay_buffer = ReplayBuffer()
+
+        # Environment interface
         self.interface = MORoverInterface(rover_config_filename)
 
-    def _soft_update(self, target_network, main_network, tau):
+    def _soft_update(self, target_network, main_network):
         """
-        Performs a soft update of the target network parameters by blending them with the main network parameters.
+        Perform a soft update of the target network parameters by blending them with the main network parameters.
         """
         for target_param, main_param in zip(target_network.parameters(), main_network.parameters()):
-            target_param.data.copy_(tau * main_param.data + (1.0 - tau) * target_param.data)
-        
-    def run(self, tau=0.01):
-        for e in range(250):
-            self.rep_buf.experiences.clear()
+            target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
-            for _ in range(200):
-                experience, glob_reward = self.interface.rollout(self.main_policy, [0], True)
-                ep_traj = experience[0]
-                for transition in ep_traj:
-                    self.rep_buf.experiences.append(transition)
-            
-            # finished filling replay buffer
+    def train(self, episodes=500, rollouts_per_episode=20, batch_size=64, secondary_update_freq=5):
+        """
+        Train the DDPG agent using experiences collected from the environment.
+        """
+        for e in range(episodes):
+            # Clear the replay buffer for each episode
+            self.replay_buffer.clear()
 
-            # randomly sample n transitions from self.rep_buf.experiences
-            if len(self.rep_buf.experiences) < 100:
+            # Collect experiences by performing rollouts in the environment
+            for _ in range(rollouts_per_episode):
+                experience, global_reward = self.interface.rollout(self.main_actor, active_agents_indices=[0], noisy_action=True, noise_std=0.05)
+                # Since we have only one agent (head=0) in this scenario
+                agent_trajectory = experience[0]
+
+                for transition in agent_trajectory:
+                    self.replay_buffer.add(transition)
+
+            if len(self.replay_buffer) < batch_size:
                 # Not enough data for a batch
                 continue
-            
-            sampled_transitions = np.random.choice(self.rep_buf.experiences, size=30, replace=False)
-            # print(choices)
 
-            main_q_vals_exp, y_list = [], []
-       
+            # Sample a batch of experiences from the replay buffer
+            sampled_transitions = self.replay_buffer.sample(batch_size)
+
+            # Convert the batch of experiences to tensors
+            states = []
+            actions = []
+            rewards = []
+            next_states = []
+            dones = []
+
             for transition in sampled_transitions:
-                state_tensor = torch.Tensor(transition['state'])
-                next_state_tensor = torch.Tensor(transition['next_state'])
-                action_tensor = torch.Tensor([transition['action']])
+                states.append(transition['state'])
+                actions.append(transition['action'])
+                rewards.append([transition['local_reward']])
+                next_states.append(transition['next_state'])
+                dones.append([float(transition['done'])])
 
-                target_next_action = self.target_policy.clean_action(next_state_tensor)
-                target_q_value = self.target_critic.forward(state=next_state_tensor, action=target_next_action)
+            state_tensor = torch.FloatTensor(np.array(states))
+            action_tensor = torch.FloatTensor(np.array(actions))
+            reward_tensor = torch.FloatTensor(np.array(rewards))
+            next_state_tensor = torch.FloatTensor(np.array(next_states))
+            done_tensor = torch.FloatTensor(np.array(dones))
 
-                y = transition['local_reward'] + self.gamma * (1 - int(transition['done'])) * float(target_q_value[0])
-                y_list.append(y)
+            # -------- Update Critic --------
+            with torch.no_grad():
+                # Target actor provides actions for the next states
+                target_next_action = self.target_actor.clean_action(next_state_tensor)
+                # Evaluate critic for next states and actions
+                target_q_value = self.target_critic(next_state_tensor, target_next_action)
+                # Compute the target value y for the critic loss
+                y = reward_tensor + (1 - done_tensor) * self.gamma * target_q_value
 
-                main_q_value_exp = self.main_critic.forward(state=state_tensor, action=action_tensor)
-                main_q_vals_exp.append(main_q_value_exp)
+            # Compute Q-value from main_critic for the sampled state-action pairs
+            main_q_value = self.main_critic(state_tensor, action_tensor)
+            critic_loss = self.main_critic.loss_fn(main_q_value, y)
 
-            
-            # update the critic
-            main_critic_loss = self.main_critic.loss_fn(torch.stack(main_q_vals_exp), torch.tensor(y_list).unsqueeze(1))
-            self.main_critic.optimizer.zero_grad()
-            main_critic_loss.backward()
-            self.main_critic.optimizer.step()
-            # print("Main Critic Loss", main_critic_loss.item())
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
 
-            # update the actor
-            main_q_vals_main = []
-            for transition in sampled_transitions:
-                state_tensor = torch.Tensor(transition['state'])
-                predicted_action = self.main_policy.clean_action(state_tensor)
-                q_val = self.main_critic.forward(state=state_tensor, action=predicted_action)
-                main_q_vals_main.append(q_val)
+            # -------- Update Actor --------
+            # The actor aims to maximize the Q-value given by main_critic
+            predicted_action = self.main_actor.clean_action(state_tensor)
+            actor_loss = -self.main_critic(state_tensor, predicted_action).mean()
 
-            policy_loss = -torch.stack(main_q_vals_main).mean()
-            self.main_policy.optimizer.zero_grad()
-            policy_loss.backward()
-            self.main_policy.optimizer.step()
-            print("Main Policy Loss", policy_loss.item())
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor_optimizer.step()
 
-            # perform a soft update of target networks
-            self._soft_update(self.target_policy, self.main_policy, tau)
-            self._soft_update(self.target_critic, self.main_critic, tau)
+            # -------- Soft Update Target Networks --------
+            self._soft_update(self.target_actor, self.main_actor)
+            self._soft_update(self.target_critic, self.main_critic)
 
-        print(self.interface.rollout(self.main_policy, [0]))
+            # Logging for debugging
+            print(f"Episode {e+1}/{episodes}, Critic Loss: {critic_loss.item():.4f}, Actor Loss: {actor_loss.item():.4f}")
+            print(self.interface.rollout(self.main_actor, [0], noisy_action=False)[0])
+
+        # Evaluate final policy
+        final_trajectory, final_global_reward = self.interface.rollout(self.main_actor, [0], noisy_action=False)
+        print(final_trajectory)
 
 
 if __name__ == "__main__":
-    ddpg = DDPG(None, '/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml')
-    ddpg.run(tau=0.001)
+    # Example initialization:
+    # Adjust `state_dim` and `action_dim` to match your environment’s dimensionalities
+    ddpg_agent = DDPG(
+        alg_config_filename=None,
+        rover_config_filename='/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml',
+        state_dim=10,
+        action_dim=2,
+        hidden_size=128,
+        gamma=0.99,
+        tau=0.001,
+        actor_lr=0.00001,
+        critic_lr=1e-3
+    )
+    ddpg_agent.train(episodes=1000, rollouts_per_episode=10, batch_size=100, secondary_update_freq=5)
