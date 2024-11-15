@@ -4,9 +4,10 @@ import torch
 import MORoverInterface
 import random
 import copy
+import numpy as np
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=3, team_size=3, noise_std=0.5, noise_mean=0, num_objs=2):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.5, noise_mean=0, num_objs=2):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -22,6 +23,7 @@ class NSGAII:
         # MERL hidden size is 100
         # TODO: fix next_id for multihead actors
         # TODO: add code to insert traj into replay buffer
+        # TODO: make fitnesses into a dict where the mha id is the key
 
         assert num_heads >= team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert popsize % 2 == 0, "population size should be even"
@@ -109,6 +111,12 @@ class NSGAII:
             self.mutate_policy(team)
             new_pop.append(team)
         return new_pop
+    
+    def form_teams_for_mha(self, num_teams):
+
+        return [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(num_teams)]
+        # number of teams to form = (popsize / 2) / 
+        # this should return [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
         
     def evolve_pop(self):
         """
@@ -118,12 +126,19 @@ class NSGAII:
         - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
         """
         r_set = self.parent + (self.offspring or []) # or statement for if first generation
-        print("length of parent", len(self.parent))
-        if(self.offspring is None):
-            print("offspring is none")
-        else:
-            print("length of offspring", len(self.offspring))
-        print("length of r_set", len(r_set))
+
+        # assigning id to each multiheaded actor
+        counter = 0
+        for mha in r_set:
+            mha.id = counter
+            counter += 1   
+
+        # print("length of parent", len(self.parent))
+        # if(self.offspring is None):
+        #     print("offspring is none")
+        # else:
+        #     print("length of offspring", len(self.offspring))
+        # print("length of r_set", len(r_set))
 
         fitnesses = self.evaluate_fitnesses(r_set)
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=fitnesses)
