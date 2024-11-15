@@ -18,7 +18,7 @@ Environment:
       repeat: True
 
 Agents:
-  starting_locs: [[1, 1]]
+  starting_locs: [[3, 3]]
   num_sensors: [4]
   observation_radii: [15]
   max_step_sizes: [1]
