@@ -48,7 +48,8 @@ class MORoverInterface():
         self.rover_env.reset() # reset the rover env
 
         for t in range(ep_length):
-            observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii) # get each agent's observation at the current position
+            observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii, normalise=True) # get each agent's observation at the current position
+            print("observation list: ", observations_list)
             # Convert observations to a torch tensor for the entire set of agents
             observations_tensor = torch.tensor(observations_list, dtype=torch.float32) 
 
@@ -105,7 +106,7 @@ class MORoverInterface():
             cumulative_global_reward = self._keywise_sum(cumulative_global_reward, global_reward)
 
             # Prepare for next state's observations (after environment update)
-            next_observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii)
+            next_observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii, normalise=True)
 
             # Update each agent's transition dictionary with next state and done
             for i, agent_idx in enumerate(active_agents_indices):
