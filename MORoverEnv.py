@@ -198,7 +198,7 @@ class MORoverEnv:
                     local_reward = float('inf')  # If distance is zero, assign infinite reward or a predefined max value
             elif self.local_reward_mode == "exponential":
                 # e^-min_distance
-                local_reward = math.exp(-min_distance)
+                local_reward = math.exp(-5*min_distance)
             local_rewards.append(local_reward)
         
         return local_rewards
