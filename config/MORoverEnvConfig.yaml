@@ -6,8 +6,8 @@ Environment:
   ep_length: 15  # episode length
   timestep_penalty: 0
   global_reward_mode: "Aggregated"  # Options: "Aggregated", "Final"
-  local_reward_mode: "exponential" # Options: inverse_distance
-  local_reward_kneecap: 100.0 # Distance from POI at which local reward is exactly 1 (higher if closer)
+  local_reward_mode: "inverse_distance" # Options: inverse_distance, exponential
+  local_reward_kneecap: 10.0 # Distance from POI at which local reward is exactly 1 (higher if closer)
   pois:
     - obj: 1
       location: [5, 8]
