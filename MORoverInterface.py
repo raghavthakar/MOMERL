@@ -49,20 +49,13 @@ class MORoverInterface():
 
         for t in range(ep_length):
             observations_list = self.rover_env.generate_observations(agent_locations, num_sensors, observation_radii, normalise=True) # get each agent's observation at the current position
-            # print("observation list: ", observations_list)
-            # Convert observations to a torch tensor for the entire set of agents
-            observations_tensor = torch.tensor(observations_list, dtype=torch.float32) 
             
-            # Each agent's observation: length of observations = number_of_agents
-            # so observation for each agent can be found by indexing into the observations_tensor
-            observation_size = len(observations_list[0]) if observations_list else 0  # size of each agent's observation in case no observations
-
             agent_moves = []
             transitions = {} # transition = {'state' : [], 'action' : [], 'local_reward' : 0, 'next_state' : [], 'done' : False}
 
             for i, agent_idx in enumerate(active_agents_indices):
                 # Extract the current observation for this agent
-                agent_observation = observations_tensor[i].unsqueeze(0)  # Add batch dimension for the model
+                agent_observation = torch.FloatTensor(observations_list[i]).unsqueeze(0)  # Add batch dimension for the model
 
                 # Get the deterministic action from the actor
                 action_tensor = mh_actor.clean_action(agent_observation, head=agent_idx)
@@ -83,9 +76,15 @@ class MORoverInterface():
                 scaling_factor = (max_step / norm) if norm > 0 else 0 # the factor by which the moves should be scaled
                 scaled_action = action * scaling_factor # multiply each member of the action by the scaling factor
 
+                state = np.array(observations_list[i], dtype=np.float32)
+                state = torch.tensor(state, dtype=torch.float32, requires_grad=True)
+
+                action = np.array(action, dtype=np.float32)
+                action = torch.tensor(action, dtype=torch.float32, requires_grad=True)
+
                 # Construct the transition dictionary for the current agent
                 transitions[agent_idx] = {
-                    'state': observations_list[i],
+                    'state': state,
                     'action': action,
                     'local_reward' : None, # Will be applied later
                     'next_state': [],
@@ -110,8 +109,11 @@ class MORoverInterface():
 
             # Update each agent's transition dictionary with next state and done
             for i, agent_idx in enumerate(active_agents_indices):
+                next_state = np.array(next_observations_list[i], dtype=np.float32) if next_observations_list else np.array([], dtype=np.float32)
+                next_state = torch.tensor(next_state, dtype=torch.float32, requires_grad=True)
+
                 transitions[agent_idx]['local_reward'] = local_rewards[i]
-                transitions[agent_idx]['next_state'] = next_observations_list[i] if next_observations_list else []
+                transitions[agent_idx]['next_state'] =  next_state
                 transitions[agent_idx]['done'] = done
 
                 # Append the transition to the agent's trajectory
