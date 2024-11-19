@@ -77,10 +77,10 @@ class MORoverInterface():
                 scaled_action = action * scaling_factor # multiply each member of the action by the scaling factor
 
                 state = np.array(observations_list[i], dtype=np.float32)
-                state = torch.tensor(state, dtype=torch.float32, requires_grad=True)
+                state = torch.tensor(state, dtype=torch.float32)
 
                 action = np.array(action, dtype=np.float32)
-                action = torch.tensor(action, dtype=torch.float32, requires_grad=True)
+                action = torch.tensor(action, dtype=torch.float32)
 
                 # Construct the transition dictionary for the current agent
                 transitions[agent_idx] = {
@@ -110,7 +110,7 @@ class MORoverInterface():
             # Update each agent's transition dictionary with next state and done
             for i, agent_idx in enumerate(active_agents_indices):
                 next_state = np.array(next_observations_list[i], dtype=np.float32) if next_observations_list else np.array([], dtype=np.float32)
-                next_state = torch.tensor(next_state, dtype=torch.float32, requires_grad=True)
+                next_state = torch.tensor(next_state, dtype=torch.float32)
 
                 transitions[agent_idx]['local_reward'] = local_rewards[i]
                 transitions[agent_idx]['next_state'] =  next_state
