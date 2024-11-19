@@ -20,7 +20,7 @@ class MORoverInterface():
     def _keywise_sum(self, dict1, dict2):
         return {key: dict1.get(key, 0) + dict2.get(key, 0) for key in set(dict1) | set(dict2)}
 
-    def rollout(self, mh_actor: MultiHeadActor, active_agents_indices: list, noisy_action=False, noise_std=0.4):
+    def rollout(self, mh_actor: MultiHeadActor, active_agents_indices: list, alg="ddpg", noisy_action=False, noise_std=0.4):
         """
         Perform a rollout of a given multiheaded actor in the MORoverEnv domain.
 

@@ -18,7 +18,7 @@ def hard_update(target, source):
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(
-            param.data * (1.0 - tau) + target_param.data * tau
+            target_param.data * (1.0 - tau) + param.data * tau
         )
 
 class Critic(nn.Module):
@@ -81,13 +81,13 @@ class DDPG2:
         hard_update(self.target_critic, self.main_critic)
 
         self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=0.001)
-        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.0001)
+        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.0005)
         self.interface = MORoverInterface(rover_config_filename)
 
         self.rep_buff = ReplayBuffer(10000)
 
-        self.tau = 0.995
-        self.discount = 0.99
+        self.tau = 0.005
+        self.discount = 0.999
     
     def collect_trajectory(self, num_episodes, num_samples):
         for i in range(num_episodes):
@@ -231,5 +231,5 @@ class DDPG2:
 
 if __name__ == "__main__":
     ddpg = DDPG2("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
-    ddpg.update_params(1500, 25, 100)
+    ddpg.update_params(60000, 25, 250)
     # ddpg.update_params(1, 1, 100)
