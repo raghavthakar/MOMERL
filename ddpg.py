@@ -18,7 +18,7 @@ def hard_update(target, source):
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(
-            param.data * (1.0 - tau) + target_param.data * tau
+            target_param.data * (1.0 - tau) + param.data * tau
         )
 
 class Critic(nn.Module):
@@ -53,9 +53,20 @@ class Critic(nn.Module):
         return x1
 
 class ReplayBuffer:
-    def __init__(self):
+    def __init__(self, buff_size=10000):
         self.experiences = []
-        self.buff_size = 10000
+        self.buff_size = buff_size
+    
+    def add(self, transition, random_discard=True):
+        if len(self.experiences) < self.buff_size:
+            self.experiences.append(transition)
+        else:
+            if random_discard:
+                i = random.randrange(len(self.experiences)) # get random index
+                self.experiences[i], self.experiences[0] = self.experiences[0], self.experiences[i] # swap with the first element
+
+            self.experiences.pop(0)
+            self.experiences.append(transition)
 
 class DDPG2:
     def __init__(self, rover_config_filename):
@@ -67,91 +78,24 @@ class DDPG2:
         self.target_policy = MultiHeadActor(10, 2, 125, 1)
 
         hard_update(self.target_critic, self.main_critic)
-        hard_update(self.target_critic, self.main_critic)
+        hard_update(self.target_policy, self.main_policy)
 
         self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=0.001)
-        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.00001)
+        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.0005)
         self.interface = MORoverInterface(rover_config_filename)
 
-        self.rep_buff = ReplayBuffer()
+        self.rep_buff = ReplayBuffer(10000)
 
-        self.tau = 0.001
-        self.discount = 0.99
+        self.tau = 0.005
+        self.discount = 0.999
     
     def collect_trajectory(self, num_episodes, num_samples):
         for i in range(num_episodes):
-            trajectory = {'states': [], 'actions': [], 'rewards': [], 'done': [], 'next_states': []}
-            agent_indices = [0]  # Assuming single agent
-            agent_locations = self.interface.config['Agents']['starting_locs']
-            num_sensors = self.interface.config['Agents']['num_sensors']
-            observation_radii = self.interface.config['Agents']['observation_radii']
-            max_step_sizes = self.interface.config['Agents']['max_step_sizes']
-            ep_length = self.interface.rover_env.get_ep_length()
 
-            self.interface.rover_env.reset()
-            for t in range(ep_length):
-                observations_list = self.interface.rover_env.generate_observations(
-                    agent_locations, num_sensors, observation_radii, normalise=True)
-                state = observations_list[0]
-
-                action = self.main_policy.clean_action(torch.FloatTensor(state).unsqueeze(0))
-                noise = torch.normal(mean=0.0, std=3.0, size=action.size())
-                action += noise
-                action = action * max_step_sizes[0]  # Scale action
-                action = action.detach().numpy()[0]
-
-                # print(action)
-                # print(agent_locations)
-                # [ 0.4702882 -0.1327428]
-                # [[np.float32(6.6230736), np.float32(2.7077267)]]
-
-                agent_locations = self.interface.rover_env.update_agent_locations(
-                    agent_locations, [action], max_step_sizes)
-
-                next_observations_list = self.interface.rover_env.generate_observations(
-                    agent_locations, num_sensors, observation_radii, normalise=True)
-                next_state = next_observations_list[0]
-
-                local_rewards = self.interface.rover_env.get_local_rewards(agent_locations)
-                reward = local_rewards[0]
-
-                done = (t == ep_length - 1)
-
-                trajectory['states'].append(state)
-                trajectory['actions'].append(action)
-                trajectory['rewards'].append(reward)
-                trajectory['done'].append(done)
-                trajectory['next_states'].append(next_state)
-
-                # {'state': [np.float64(0.187927508354187), np.float64(0.3044823169708252), 1, 0, 0, 0, 0, 0, 0, 0], 'action': array([ 0.03726111, -0.6031788 ], dtype=float32), 'local_reward': 2.9230006696420846e-15, 'next_state': [np.float64(0.19409321546554564), np.float64(0.20467257499694824), 1, 0, 0, 0, 0, 0, 0, 0], 'done': False}
-                # {'state': tensor([0.1879, 0.3045, 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                #         0.0000], requires_grad=True), 'action': tensor([ 0.0373, -0.6032], requires_grad=True), 'local_reward': 2.9230006696420846e-15, 'next_state': tensor([0.1941, 0.2047, 1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                #         0.0000], requires_grad=True), 'done': False}
-
-                state = np.array(state, dtype=np.float32)
-                state = torch.tensor(state, dtype=torch.float32, requires_grad=True)
-
-                action = np.array(action, dtype=np.float32)
-                action = torch.tensor(action, dtype=torch.float32, requires_grad=True)
-
-                next_state = np.array(next_state, dtype=np.float32)
-                next_state = torch.tensor(next_state, dtype=torch.float32, requires_grad=True)
-
-                single_trans = {"state": state, "action": action, "local_reward": reward, "next_state": next_state, "done": done}
-                
-                if(len(self.rep_buff.experiences) < self.rep_buff.buff_size):
-                    self.rep_buff.experiences.append(single_trans)
-                # print(trans)
-                # print()
-                else:
-                    self.rep_buff.experiences.pop(0)
-                    self.rep_buff.experiences.append(single_trans)
-
-                if done:
-                    break
+            ep_traj, agg_glob_rew = self.interface.rollout(self.main_policy, [0], noisy_action=True, noise_std=0.7)
             
-            # print(trajectory)
-            # print()
+            for transition in ep_traj[0]:
+                self.rep_buff.add(transition)
 
         sampled_transitions = np.random.choice(self.rep_buff.experiences, size=num_samples, replace=False)
         return sampled_transitions
@@ -223,5 +167,6 @@ class DDPG2:
         print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    ddpg = DDPG2("/Users/sidd/Desktop/ijcai25/even_newer_MOMERL/MOMERL/config/MORoverEnvConfig.yaml")
-    ddpg.update_params(3000, 25, 100)
+    ddpg = DDPG2("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
+    ddpg.update_params(3000, 25, 250)
+    # ddpg.update_params(1, 1, 100)
