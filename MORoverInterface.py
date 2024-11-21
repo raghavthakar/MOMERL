@@ -57,13 +57,19 @@ class MORoverInterface():
                 # Extract the current observation for this agent
                 agent_observation = torch.FloatTensor(observations_list[i]).unsqueeze(0)  # Add batch dimension for the model
 
-                # Get the deterministic action from the actor
-                action_tensor = mh_actor.clean_action(agent_observation, head=agent_idx)
+                action_log_prob = 0
+                # get actions based on learning mathod
+                if alg=="ddpg":
+                    # Get the deterministic action from the actor
+                    action_tensor = mh_actor.clean_action(agent_observation, head=agent_idx)
+                    
+                    # If noisy_action is True, add noise to the deterministic action for exploration
+                    if noisy_action:
+                        noise = torch.normal(mean=0.0, std=noise_std, size=action_tensor.size())
+                        action_tensor = action_tensor + noise
                 
-                # If noisy_action is True, add noise to the deterministic action for exploration
-                if noisy_action:
-                    noise = torch.normal(mean=0.0, std=noise_std, size=action_tensor.size())
-                    action_tensor = action_tensor + noise
+                elif alg=="ppo":
+                    action_tensor, action_log_prob = mh_actor.select_action(state, head=agent_idx)
                 
                 # Ensure actions are clipped to [-1, 1] after adding noise
                 action_tensor = torch.clamp(action_tensor, -1.0, 1.0)
@@ -86,6 +92,7 @@ class MORoverInterface():
                 transitions[agent_idx] = {
                     'state': state,
                     'action': action,
+                    'action_log_prob': action_log_prob,
                     'local_reward' : None, # Will be applied later
                     'next_state': [],
                     'done': False
