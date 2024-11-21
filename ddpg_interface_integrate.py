@@ -78,7 +78,7 @@ class DDPG2:
         self.target_policy = MultiHeadActor(10, 2, 125, 1)
 
         hard_update(self.target_critic, self.main_critic)
-        hard_update(self.target_critic, self.main_critic)
+        hard_update(self.target_policy, self.main_policy)
 
         self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=0.001)
         self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.0005)
@@ -231,5 +231,5 @@ class DDPG2:
 
 if __name__ == "__main__":
     ddpg = DDPG2("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
-    ddpg.update_params(60000, 25, 250)
+    ddpg.update_params(3000, 25, 250)
     # ddpg.update_params(1, 1, 100)
