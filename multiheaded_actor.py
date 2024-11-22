@@ -8,7 +8,7 @@ class MultiHeadActor(nn.Module):
     Each head represents actions for a specific policy or agent.
     """
 
-    def __init__(self, num_inputs, num_actions, hidden_size, num_heads):
+    def __init__(self, num_inputs, num_actions, hidden_size, num_heads, mha_id=-1):
         super(MultiHeadActor, self).__init__()
 
         self.num_heads = num_heads
@@ -27,6 +27,8 @@ class MultiHeadActor(nn.Module):
 
         # Initialize weights
         self.apply(self._weights_init)
+
+        self.id = mha_id
 
     def forward(self, state):
         """
