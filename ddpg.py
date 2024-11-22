@@ -23,7 +23,7 @@ def soft_update(target, source, tau):
             target_param.data * (1.0 - tau) + param.data * tau
         )
 
-class DDPG2:
+class DDPG:
     def __init__(self, rover_config_filename):
         # initialize main critic, target critic, main policy, target policy
         self.main_critic = Critic(10, 2, 25)
@@ -122,6 +122,6 @@ class DDPG2:
         print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    ddpg = DDPG2("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
+    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
     ddpg.update_params(3000, 25, 250)
     # ddpg.update_params(1, 1, 100)
