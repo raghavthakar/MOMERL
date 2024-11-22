@@ -9,8 +9,10 @@ Environment:
   local_reward_mode: "exponential" # Options: inverse_distance, exponential
   local_reward_kneecap: 10.0 # Distance from POI at which local reward is exactly 1 (higher if closer)
   local_reward_temp: 5 # higher, the smoother the reward gradient (irrelevant if reward mode is inverse_distnace)
+
+  # Objectives must start from 0.
   pois:
-    - obj: 1
+    - obj: 0
       location: [5, 8]
       radius: 3
       coupling: 1
@@ -19,7 +21,7 @@ Environment:
       repeat: True
 
 Agents:
-  starting_locs: [[3, 3]]
-  num_sensors: [4]
-  observation_radii: [15]
+  starting_locs: [[3, 3]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
+  num_sensors: [4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
+  observation_radii: [2]
   max_step_sizes: [1]
