@@ -226,6 +226,7 @@ class MORoverEnv:
 
         for loc, delta, max_step in zip(agent_locations, agent_deltas, max_step_sizes):
             if not (len(loc) == len(delta) == len(self.dimensions)):
+                print("Loc:", loc, "Delta:", delta, "Env dims:", self.dimensions)
                 raise ValueError("Each agent's location and delta must match the environment's dimensionality.")
 
             # Calculate the Euclidean norm of the delta
