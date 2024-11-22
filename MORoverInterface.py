@@ -127,3 +127,23 @@ class MORoverInterface():
                 rollout_trajectory[agent_idx].append(transitions[agent_idx])
 
         return rollout_trajectory, cumulative_global_reward
+
+    # Function to get domain-specific information for the algorithm
+    def get_state_size(self):
+        '''
+        Get the number of inputs to the actor network.
+        '''
+        return self.config['Agents']['num_sensors'] * 2 + len(self.rover_env.dimensions)
+    
+    def get_action_size(self):
+        '''
+        Get the number of outputs per agent for the actor network.
+        '''
+        return len(self.rover_env.dimensions)
+
+    def get_team_size(self):
+        '''
+        Get the number of agents that must be deployed in a rollout. Team size.
+        '''
+        # team size is implicitly recorded by the length of starting locations
+        return len(self.config['Agents']['starting_locs'])
