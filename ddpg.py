@@ -33,8 +33,6 @@ class Critic(nn.Module):
         self.apply(self._weights_init_value_fn)
 
         self.loss_fn = nn.MSELoss()
-
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
     
     # Initialize Policy weights
     def _weights_init_value_fn(self, m):
@@ -74,8 +72,8 @@ class DDPG2:
         self.main_critic = Critic(10, 2, 25)
         self.target_critic = Critic(10, 2, 25)
 
-        self.main_policy = MultiHeadActor(10, 2, 125, 1)
-        self.target_policy = MultiHeadActor(10, 2, 125, 1)
+        self.main_policy = MultiHeadActor(10, 2, 125, 3)
+        self.target_policy = MultiHeadActor(10, 2, 125, 3)
 
         hard_update(self.target_critic, self.main_critic)
         hard_update(self.target_policy, self.main_policy)
@@ -117,7 +115,7 @@ class DDPG2:
                 # rep buff now has all the experiences for us to use
                 # next_state_target_pol = []
                 with torch.no_grad():
-                    next_state_target_pol = self.target_policy.clean_action(transition["next_state"])
+                    next_state_target_pol = self.target_policy.clean_action(transition["next_state"], 0)
                     
                     next_state_target_critic = self.target_critic.forward(transition["next_state"], next_state_target_pol)
                     
@@ -144,7 +142,7 @@ class DDPG2:
             curr_state_lst = []
             for transition in sampled_trans:
                 curr_state_lst.append(transition["state"])
-                main_policy_curr_state = self.main_policy.clean_action(transition["state"])
+                main_policy_curr_state = self.main_policy.clean_action(transition["state"], 0)
                 main_policy_vals.append(main_policy_curr_state)
             
             main_policy_vals = torch.stack(main_policy_vals)

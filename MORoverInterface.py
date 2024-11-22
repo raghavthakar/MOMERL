@@ -55,7 +55,7 @@ class MORoverInterface():
 
             for i, agent_idx in enumerate(active_agents_indices):
                 # Extract the current observation for this agent
-                agent_observation = torch.FloatTensor(observations_list[i]).unsqueeze(0)  # Add batch dimension for the model
+                agent_observation = torch.FloatTensor(observations_list[i])  # Add batch dimension for the model
 
                 action_log_prob = 0
                 # get actions based on learning mathod

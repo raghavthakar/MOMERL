@@ -66,7 +66,7 @@ class MultiHeadActor(nn.Module):
         elif 0 <= head < self.num_heads:
             start = head * self.num_actions
             end = start + self.num_actions
-            return mean_output[:, start:end]
+            return mean_output[start:end]
         else:
             raise IndexError(f"Head index {head} is out of range for {self.num_heads} heads.")
         
