@@ -7,6 +7,8 @@ import random
 from MORoverEnv import MORoverEnv
 from MORoverInterface import MORoverInterface
 from multiheaded_actor import MultiHeadActor
+from DDPGCritic import Critic
+from ReplayBuffer import ReplayBuffer
 
 criterion = nn.MSELoss()
 
@@ -21,59 +23,14 @@ def soft_update(target, source, tau):
             target_param.data * (1.0 - tau) + param.data * tau
         )
 
-class Critic(nn.Module):
-    def __init__(self, num_inputs, num_actions, hidden_size):
-        super(Critic, self).__init__()
-
-        # Q1 architecture
-        self.linear1 = nn.Linear(num_inputs + num_actions, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, hidden_size)
-        self.linear3 = nn.Linear(hidden_size, 1)
-
-        self.apply(self._weights_init_value_fn)
-
-        self.loss_fn = nn.MSELoss()
-    
-    # Initialize Policy weights
-    def _weights_init_value_fn(self, m):
-        classname = m.__class__.__name__
-
-        if classname.find('Linear') != -1:
-            torch.nn.init.xavier_uniform_(m.weight, gain=0.5)
-            torch.nn.init.constant_(m.bias, 0)
-
-    def forward(self, state, action):
-        x1 = torch.cat([state, action], -1) # TODO: changed from 0 back to 1
-        x1 = torch.tanh(self.linear1(x1))
-        x1 = torch.tanh(self.linear2(x1))
-        x1 = self.linear3(x1)
-
-        return x1
-
-class ReplayBuffer:
-    def __init__(self, buff_size=10000):
-        self.experiences = []
-        self.buff_size = buff_size
-    
-    def add(self, transition, random_discard=True):
-        if len(self.experiences) < self.buff_size:
-            self.experiences.append(transition)
-        else:
-            if random_discard:
-                i = random.randrange(len(self.experiences)) # get random index
-                self.experiences[i], self.experiences[0] = self.experiences[0], self.experiences[i] # swap with the first element
-
-            self.experiences.pop(0)
-            self.experiences.append(transition)
-
 class DDPG2:
     def __init__(self, rover_config_filename):
         # initialize main critic, target critic, main policy, target policy
         self.main_critic = Critic(10, 2, 25)
         self.target_critic = Critic(10, 2, 25)
 
-        self.main_policy = MultiHeadActor(10, 2, 125, 3)
-        self.target_policy = MultiHeadActor(10, 2, 125, 3)
+        self.main_policy = MultiHeadActor(10, 2, 125, 1)
+        self.target_policy = MultiHeadActor(10, 2, 125, 1)
 
         hard_update(self.target_critic, self.main_critic)
         hard_update(self.target_policy, self.main_policy)
