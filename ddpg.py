@@ -78,13 +78,14 @@ class DDPG:
         self.roster_size = self.config_data['Shared']['roster_size']
 
     
-    def collect_trajectory(self, num_episodes, num_samples):
+    def collect_trajectory(self, policy, active_agents_indices, num_episodes, num_samples):
         for i in range(num_episodes):
 
-            ep_traj, agg_glob_rew = self.interface.rollout(self.main_policy, [0], noisy_action=True, noise_std=0.7)
+            ep_traj, agg_glob_rew = self.interface.rollout(policy, active_agents_indices=active_agents_indices, noisy_action=True, noise_std=0.7)
             
-            for transition in ep_traj[0]:
-                self.rep_buff.add(transition)
+            for agent_idx in active_agents_indices:
+                for transition in ep_traj[agent_idx]:
+                    self.replay_buffers[agent_idx].add(transition)
 
         sampled_transitions = np.random.choice(self.rep_buff.experiences, size=num_samples, replace=False)
         return sampled_transitions
