@@ -7,7 +7,7 @@ import copy
 import numpy as np
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.5, noise_mean=0, num_objs=2):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.3, noise_mean=0):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -18,7 +18,6 @@ class NSGAII:
         - team_size (int): Number of agents on a team
         - noise_std (float or int): Standard deviation value for noise added during mutation
         - noise_mean (float or int): Mean value for noise added during mutation 
-        - num_objs (int): The number of objectives in the problem
         """
         # MERL hidden size is 100
         # TODO: fix next_id for multihead actors
@@ -36,11 +35,13 @@ class NSGAII:
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.team_size = team_size
-        self.num_objs = num_objs
-
         self.parent = [mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
+    
+    def _give_mha_id(self, mha):
+        mha.id = self.next_id
+        self.next_id += 1
 
     def mutate_policy(self, policy):
         """
@@ -81,13 +82,13 @@ class NSGAII:
 
         fitnesses = [None] * len(r_set)
         for ind, policy in enumerate(r_set):
-            traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/new_momerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0, 1, 2])
+            traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0])
             # global_reward is a dict where the key is the objective and value is the reward of that objective -> {2:98, 1:45}
 
-            g_list = [None] * self.num_objs
+            g_list = [None] * 1
             # converting the dict to a list
             for key in global_reward:
-                g_list[key - 1] = -global_reward[key] # Need to do -1 because the objectives in the dict start at 1
+                g_list[key] = -global_reward[key] # Need to do -1 because the objectives in the dict start at 1
             
             assert None not in g_list, "One of the objectives was not found in the global_reward dict"
             
@@ -132,13 +133,6 @@ class NSGAII:
         for mha in r_set:
             mha.id = counter
             counter += 1   
-
-        # print("length of parent", len(self.parent))
-        # if(self.offspring is None):
-        #     print("offspring is none")
-        # else:
-        #     print("length of offspring", len(self.offspring))
-        # print("length of r_set", len(r_set))
 
         fitnesses = self.evaluate_fitnesses(r_set)
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=fitnesses)

@@ -10,7 +10,7 @@ Environment:
   local_reward_kneecap: 10.0 # Distance from POI at which local reward is exactly 1 (higher if closer)
   local_reward_temp: 5 # higher, the smoother the reward gradient (irrelevant if reward mode is inverse_distnace)
   pois:
-    - obj: 1
+    - obj: 0
       location: [5, 8]
       radius: 3
       coupling: 1
