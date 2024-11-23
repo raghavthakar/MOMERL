@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 class ReplayBuffer:
     def __init__(self, buff_size=10000):
@@ -15,3 +16,7 @@ class ReplayBuffer:
 
             self.experiences.pop(0)
             self.experiences.append(transition)
+    
+    def sample_transitions(self, num_samples=1000):
+        sampled_transitions = np.random.choice(self.experiences, size=num_samples, replace=False)
+        return sampled_transitions
