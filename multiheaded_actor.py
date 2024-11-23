@@ -8,7 +8,7 @@ class MultiHeadActor(nn.Module):
     Each head represents actions for a specific policy or agent.
     """
 
-    def __init__(self, num_inputs, num_actions, hidden_size, num_heads):
+    def __init__(self, num_state_inputs, num_actions, hidden_size, num_heads):
         super(MultiHeadActor, self).__init__()
 
         self.num_heads = num_heads
@@ -16,7 +16,7 @@ class MultiHeadActor(nn.Module):
         self.hidden_size = hidden_size
 
         # Shared trunk layers
-        self.linear1 = nn.Linear(num_inputs, hidden_size)
+        self.linear1 = nn.Linear(num_state_inputs, hidden_size)
         self.linear2 = nn.Linear(hidden_size, hidden_size)
 
         # Output layer for all heads combined
