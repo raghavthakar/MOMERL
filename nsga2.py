@@ -6,8 +6,17 @@ import random
 import copy
 import numpy as np
 
+class SuperMHA():
+    def __init__(self, mha, team_indices=None, fitnesses=None):
+        self.mha = mha
+        self.super_id = mha.id
+        self.team_indices = team_indices
+        self.fitnesses = fitnesses
+        self.indices_from_fitness_lst = [] # makes it easier to do Borda Count
+        
+
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=10):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=3, team_size=2, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=10):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -20,7 +29,6 @@ class NSGAII:
         - noise_mean (float or int): Mean value for noise added during mutation 
         """
         # MERL hidden size is 100
-        # TODO: fix next_id for multihead actors
         # TODO: add code to insert traj into replay buffer
         # TODO: make fitnesses into a dict where the mha id is the key
 
@@ -81,10 +89,10 @@ class NSGAII:
 
         fitnesses = [None] * len(r_set)
         for ind, policy in enumerate(r_set):
-            traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0])
+            traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0, 1]) # TODO: swap this to be the active indices
             # global_reward is a dict where the key is the objective and value is the reward of that objective -> {2:98, 1:45}
 
-            g_list = [None] * 1
+            g_list = [None] * len(global_reward)
             # converting the dict to a list
             for key in global_reward:
                 g_list[key] = -global_reward[key] # Need to do -1 because the objectives in the dict start at 1
@@ -112,11 +120,57 @@ class NSGAII:
             new_pop.append(team)
         return new_pop
     
-    def form_teams_for_mha(self, num_teams):
+    def form_teams_for_mha(self, mha):
+        team_list = [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)]
+        
+        mhainfo = SuperMHA(mha=mha, team_indices=team_list)
 
-        return [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(num_teams)]
-        # number of teams to form = (popsize / 2) / 
+        return mhainfo
+        #return [[np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)] for j in range(num_mhas)]
         # this should return [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
+    
+    def updated_evolve_pop(self):
+        r_set = self.parent + (self.offspring or [])
+        # r_set has the population of mulitheaded actors from parent and offspring
+
+        # now we need to form teams from r_set
+        all_rosters = [self.form_teams_for_mha(roster) for roster in r_set] # all_rosters holds a list of SuperMHAs 
+
+        self.updated_evaluate_fitnesses(all_rosters)
+
+    def updated_evaluate_fitnesses(self, all_rosters):
+        # all_rosters is a list of SuperMHAs
+
+        env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
+
+        all_fitnesses = []
+
+        for roster in all_rosters:
+            fitnesses = []
+            counter = len(all_fitnesses)
+            for team in roster.team_indices:
+                roster.indices_from_fitness_lst.append(counter)
+                print("Added the index", counter)
+                counter += 1
+                # TODO: insert trajectory into Replay Buffer
+                traj, global_reward = env.rollout(roster.mha, team)
+                g_list = [None] * len(global_reward)
+
+                for key in global_reward:
+                    g_list[key] = -global_reward[key]
+                
+                assert None not in g_list, "One of the objectives was not found in the global_reward dict"
+
+                fitnesses.append(g_list)
+            
+            roster.fitnesses = fitnesses
+            all_fitnesses.extend(fitnesses)
+        
+        print(all_fitnesses)
+        # all_fitnesses has all the fitnesses as a 2d list for pygmo to sort
+        
+        return all_fitnesses
+
         
     def evolve_pop(self):
         """
@@ -189,8 +243,10 @@ class NSGAII:
 if __name__ == "__main__":
     evo = NSGAII()
 
-    for i in range(100):
-        print("Gen", i)
-        evo.evolve_pop()
-        print()
-    print("done")
+    evo.updated_evolve_pop()
+
+    # for i in range(100):
+    #     print("Gen", i)
+    #     evo.evolve_pop()
+    #     print()
+    # print("done")
