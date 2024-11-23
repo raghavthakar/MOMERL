@@ -7,7 +7,7 @@ import copy
 import numpy as np
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.3, noise_mean=0):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=5, team_size=3, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=10):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -38,6 +38,8 @@ class NSGAII:
         self.parent = [mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
+
+        self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
     
     def _give_mha_id(self, mha):
         mha.id = self.next_id
@@ -63,8 +65,7 @@ class NSGAII:
                     noise_b = self.noise_mean + torch.randn_like(layer.bias) * self.noise_std
                     noise_bias.append(noise_b)
                     layer.bias.data += noise_b
-        policy.id = self.next_id
-        self.next_id += 1
+        self._give_mha_id(policy) # TODO: Check if this is the right place to do it? It does seem so..test further
     
     def evaluate_fitnesses(self, r_set):
         """
@@ -77,8 +78,6 @@ class NSGAII:
         - fitnesses (list of lists): List of fitness vectors, where each vector contains n values for n objectives
         """
         # can use multiprocessing for this later
-
-        # TODO: Don't use key-1 for determining the index of objective
 
         fitnesses = [None] * len(r_set)
         for ind, policy in enumerate(r_set):
@@ -128,12 +127,6 @@ class NSGAII:
         """
         r_set = self.parent + (self.offspring or []) # or statement for if first generation
 
-        # assigning id to each multiheaded actor
-        counter = 0
-        for mha in r_set:
-            mha.id = counter
-            counter += 1   
-
         fitnesses = self.evaluate_fitnesses(r_set)
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=fitnesses)
 
@@ -142,8 +135,8 @@ class NSGAII:
         for ind in ndf:
             sorted_policies.append([(r_set[i], fitnesses[i]) for i in ind]) # tuple of (policy, fitness vector)
         
-        print("sorted policies")
-        print(sorted_policies)
+        #print("sorted policies")
+        #print(sorted_policies)
         next_pop = []
         curr_front = 0
         if(self.offspring is None):
@@ -154,6 +147,12 @@ class NSGAII:
             self.parent = mha_policies
             self.offspring = mutated_pop
 
+            print_set = self.parent
+            print_ids = [mh.id for mh in print_set]
+            print(print_ids)
+            print_set = self.offspring
+            print_ids = [mh.id for mh in print_set]
+            print(print_ids)
             return self.parent
         else:
             
@@ -179,6 +178,12 @@ class NSGAII:
             self.parent = next_pop
             self.offspring = self.make_new_pop(copy.deepcopy(next_pop))
 
+            print_set = self.parent
+            print_ids = [mh.id for mh in print_set]
+            # print(print_ids)
+            print_set = self.offspring
+            print_ids = [mh.id for mh in print_set]
+            # print(print_ids)
             return self.parent
 
 if __name__ == "__main__":
@@ -187,4 +192,5 @@ if __name__ == "__main__":
     for i in range(100):
         print("Gen", i)
         evo.evolve_pop()
+        print()
     print("done")
