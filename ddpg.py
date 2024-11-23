@@ -33,20 +33,27 @@ class DDPG:
         self.config_filename = alg_config_filename
         self._read_config()
 
-        # initialize main critic, target critic, main policy, target policy
-        self.main_critic = Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size)
-        self.target_critic = Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size)
+        # initialize as many main critics, target critics, replya buffers, as agents on the roster
+        self.main_critics = []
+        self.target_critics = []
+        self.main_critic_optims = []
+        self.replay_buffers = []
 
+        for i in range(self.roster_size):
+            self.main_critics.append(Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size))
+            self.target_critics.append(Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size))
+
+            hard_update(self.target_critics[i], self.main_critics[i])
+            hard_update(self.target_policies[i], self.main_policies[i])
+
+            self.main_critic_optims.append(torch.optim.Adam(self.main_critic.parameters(), lr=self.critic_lr))
+
+            self.replay_buffers.append(ReplayBuffer(10000))
+        
+        # one main and target policy
         self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
         self.target_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
-
-        hard_update(self.target_critic, self.main_critic)
-        hard_update(self.target_policy, self.main_policy)
-
-        self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=self.critic_lr)
-        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=self.actor_lr)
-
-        self.rep_buff = ReplayBuffer(10000)
+        self.main_policy_optim = torch.optim.Adam(self.main_policy.parameters(), lr=self.actor_lr)
     
     def _read_config(self):
         """Read and load DDPG configuration from the YAML file."""
