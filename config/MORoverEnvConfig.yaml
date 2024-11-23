@@ -21,7 +21,7 @@ Environment:
       repeat: True
 
 Agents:
-  starting_locs: [[3, 3]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
-  num_sensors: [4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
-  observation_radii: [2]
-  max_step_sizes: [1]
+  starting_locs: [[3, 3], [3, 3]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
+  num_sensors: [4, 4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
+  observation_radii: [2, 2]
+  max_step_sizes: [1, 1]

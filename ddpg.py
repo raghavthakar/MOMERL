@@ -25,7 +25,7 @@ def soft_update(target, source, tau):
         )
 
 class DDPG:
-    def __init__(self, alg_config_filename, rover_config_filename):
+    def __init__(self, alg_config_filename, rover_config_filename, init_target_policy):
         # Initialise the test domain
         self.interface = MORoverInterface(rover_config_filename)
 
@@ -44,15 +44,15 @@ class DDPG:
             self.target_critics.append(Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size))
 
             hard_update(self.target_critics[i], self.main_critics[i])
-            hard_update(self.target_policies[i], self.main_policies[i])
 
-            self.main_critic_optims.append(torch.optim.Adam(self.main_critic.parameters(), lr=self.critic_lr))
+            self.main_critic_optims.append(torch.optim.Adam(self.main_critics[-1].parameters(), lr=self.critic_lr))
 
             self.replay_buffers.append(ReplayBuffer(10000))
         
         # one main and target policy
         self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
-        self.target_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
+        self.target_policy = deepcopy(init_target_policy)
+        
         self.main_policy_optim = torch.optim.Adam(self.main_policy.parameters(), lr=self.actor_lr)
     
     def _read_config(self):
@@ -77,8 +77,10 @@ class DDPG:
 
         self.roster_size = self.config_data['Shared']['roster_size']
 
-    
-    def collect_trajectory(self, policy, active_agents_indices, num_episodes, num_samples):
+    def collect_trajectory(self, policy, active_agents_indices, num_episodes):
+        '''
+        Perform rollout with noisy version of policy and update replay buffer.
+        '''
         for i in range(num_episodes):
 
             ep_traj, agg_glob_rew = self.interface.rollout(policy, active_agents_indices=active_agents_indices, noisy_action=True, noise_std=0.7)
@@ -87,76 +89,64 @@ class DDPG:
                 for transition in ep_traj[agent_idx]:
                     self.replay_buffers[agent_idx].add(transition)
 
-        sampled_transitions = np.random.choice(self.rep_buff.experiences, size=num_samples, replace=False)
-        return sampled_transitions
 
-    def update_params(self, num_epochs=500, num_episodes=80, num_samples=100):
+    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, num_samples=100):
+        # perform rollouts with noisy version of this policy and update the replay buffer with experiences
+        self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=num_episodes)
 
-        for e in range(num_epochs):
-            #self.rep_buff.experiences = []
-
-            sampled_trans = self.collect_trajectory(num_episodes, num_samples)
-            #sampled_trans = self.gather_and_sample_transitions(num_episodes, num_samples)
-
+        for agent_idx in active_agents_indices:
+            sampled_trans = self.replay_buffers[agent_idx].sample_transitions(num_samples=num_samples)
 
             y_vals = []
-            main_critic_preds = []
+            main_critic_predicted_vals = []
 
-            self.main_critic.zero_grad() # clearing previous gradient calcs
+            self.main_critics[agent_idx].zero_grad() # clearing previous gradient calcs
+            
             for transition in sampled_trans:
                 # rep buff now has all the experiences for us to use
-                # next_state_target_pol = []
                 with torch.no_grad():
-                    next_state_target_pol = self.target_policy.clean_action(transition["next_state"], 0)
-                    
-                    next_state_target_critic = self.target_critic.forward(transition["next_state"], next_state_target_pol)
-                    
+                    next_state_target_action = self.target_policy.clean_action(transition["next_state"], agent_idx)
+                    next_state_target_critic = self.target_critics[agent_idx].forward(transition["next_state"], next_state_target_action)
                     y = transition["local_reward"] + self.discount * (1 - transition["done"]) * next_state_target_critic
                     y_vals.append(y)
-                    #print(y, transition["local_reward"], transition["done"], next_state_target_critic)
                 
                 # exiting no grad since we're gonna do gradient update for this nn
-                curr_state_main_critic = self.main_critic.forward(transition["state"], transition["action"])
-                #print(curr_state_main_critic)
-                main_critic_preds.append(curr_state_main_critic)
+                curr_state_main_critic = self.main_critics[agent_idx].forward(transition["state"], transition["action"])
+                main_critic_predicted_vals.append(curr_state_main_critic)
             
             # gradient update for main critic
-            main_critic_preds = torch.cat(main_critic_preds)
+            main_critic_predicted_vals = torch.cat(main_critic_predicted_vals)
             y_vals = torch.cat(y_vals)
-            main_critic_loss = criterion(main_critic_preds, y_vals)
+            main_critic_loss = criterion(main_critic_predicted_vals, y_vals)
             main_critic_loss.backward()
-            self.optim_main_critic.step()
+            self.main_critic_optims[agent_idx].step()
 
-            # gradient update for main policy
-            self.main_policy.zero_grad()
+            # gradient update for main policy (roster)
+            roster.zero_grad()
 
             main_policy_vals = []
-            curr_state_lst = []
+            curr_states = []
             for transition in sampled_trans:
-                curr_state_lst.append(transition["state"])
-                main_policy_curr_state = self.main_policy.clean_action(transition["state"], 0)
-                main_policy_vals.append(main_policy_curr_state)
+                curr_states.append(transition["state"])
+                main_policy_curr_action = roster.clean_action(transition["state"], agent_idx)
+                main_policy_vals.append(main_policy_curr_action)
             
             main_policy_vals = torch.stack(main_policy_vals)
-            curr_state_lst = torch.stack(curr_state_lst)
-            #main_policy_vals = main_policy_vals.unsqueeze(0)
-            
-            # TODO: Check if this messes up the gradient since it updates the main critic too (is this still true? need to check)
+            curr_states = torch.stack(curr_states)
 
-            
-
-            main_policy_loss = -self.main_critic.forward(curr_state_lst, main_policy_vals)
+            main_policy_loss = -self.main_critics[agent_idx].forward(curr_states, main_policy_vals)
             main_policy_loss = main_policy_loss.mean()
             main_policy_loss.backward()
-            self.optim_main_policy.step()
-            print("Epoch", e, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
+            self.main_critic_optims[agent_idx].step()
+            print("Agent: ", agent_idx, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
 
-            soft_update(self.target_critic, self.main_critic, self.tau)
-            soft_update(self.target_policy, self.main_policy, self.tau)
+            soft_update(self.target_critics[agent_idx], self.main_critics[agent_idx], self.tau)
+            soft_update(self.target_policy, roster, self.tau)
 
-        print(self.interface.rollout(self.main_policy, [0]))
+        # print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
-    ddpg.update_params(3000, 25, 250)
-    # ddpg.update_params(1, 1, 100)
+    mha = MultiHeadActor(10, 2, 125, 2)
+    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
+    for i in range(3000):
+        ddpg.update_params(roster=mha, active_agents_indices=[0, 1], num_episodes=25, num_samples=250)
