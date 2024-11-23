@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from copy import deepcopy
 import random
+import yaml
 
 from MORoverEnv import MORoverEnv
 from MORoverInterface import MORoverInterface
@@ -24,25 +25,51 @@ def soft_update(target, source, tau):
         )
 
 class DDPG:
-    def __init__(self, rover_config_filename):
-        # initialize main critic, target critic, main policy, target policy
-        self.main_critic = Critic(10, 2, 25)
-        self.target_critic = Critic(10, 2, 25)
+    def __init__(self, alg_config_filename, rover_config_filename):
+        # Initialise the test domain
+        self.interface = MORoverInterface(rover_config_filename)
 
-        self.main_policy = MultiHeadActor(10, 2, 125, 1)
-        self.target_policy = MultiHeadActor(10, 2, 125, 1)
+        # read and load the config file
+        self.config_filename = alg_config_filename
+        self._read_config()
+
+        # initialize main critic, target critic, main policy, target policy
+        self.main_critic = Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size)
+        self.target_critic = Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size)
+
+        self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
+        self.target_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
 
         hard_update(self.target_critic, self.main_critic)
         hard_update(self.target_policy, self.main_policy)
 
-        self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=0.001)
-        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=0.0005)
-        self.interface = MORoverInterface(rover_config_filename)
+        self.optim_main_critic = torch.optim.Adam(self.main_critic.parameters(), lr=self.critic_lr)
+        self.optim_main_policy = torch.optim.Adam(self.main_policy.parameters(), lr=self.actor_lr)
 
         self.rep_buff = ReplayBuffer(10000)
+    
+    def _read_config(self):
+        """Read and load DDPG configuration from the YAML file."""
+        with open(self.config_filename, 'r') as config_file:
+            self.config_data = yaml.safe_load(config_file)
+            print('[DDPG]: YAML config read.')
 
-        self.tau = 0.005
-        self.discount = 0.999
+        self._load_config()
+    
+    def _load_config(self):
+        """Load internal DDPG configuration."""
+        self.actor_hidden_size = self.config_data['MHA']['hidden_size']
+        self.actor_lr = self.config_data['DDPG']['actor_lr']
+
+        self.critic_hidden_size = self.config_data['DDPG']['critic_hidden_size']
+        self.soft_update_tau = self.config_data['DDPG']['soft_update_tau']
+        self.critic_value_discount = self.config_data['DDPG']['critic_value_discount']
+        self.critic_lr = self.config_data['DDPG']['critic_lr']
+        self.tau = self.config_data['DDPG']['soft_update_tau']
+        self.discount = self.config_data['DDPG']['critic_value_discount']
+
+        self.roster_size = self.config_data['Shared']['roster_size']
+
     
     def collect_trajectory(self, num_episodes, num_samples):
         for i in range(num_episodes):
@@ -122,6 +149,6 @@ class DDPG:
         print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
+    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
     ddpg.update_params(3000, 25, 250)
     # ddpg.update_params(1, 1, 100)
