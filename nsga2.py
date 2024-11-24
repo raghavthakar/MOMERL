@@ -5,8 +5,9 @@ import MORoverInterface
 import random
 import copy
 import numpy as np
+import ReplayBuffer as replay_buffer
 
-class SuperMHA():
+class MHAWrapper():
     def __init__(self, mha, team_indices=None, fitnesses=None):
         self.mha = mha
         self.super_id = mha.id
@@ -46,6 +47,7 @@ class NSGAII:
         self.parent = [mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
+        self.replay_buffers = [replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
 
         self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
     
@@ -123,7 +125,7 @@ class NSGAII:
     def form_teams_for_mha(self, mha):
         team_list = [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)]
         
-        mhainfo = SuperMHA(mha=mha, team_indices=team_list)
+        mhainfo = MHAWrapper(mha=mha, team_indices=team_list)
 
         return mhainfo
         #return [[np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)] for j in range(num_mhas)]
@@ -158,7 +160,7 @@ class NSGAII:
         # r_set has the population of mulitheaded actors from parent and offspring
 
         # now we need to form teams from r_set
-        all_rosters = [self.form_teams_for_mha(roster) for roster in r_set] # all_rosters holds a list of SuperMHAs 
+        all_rosters = [self.form_teams_for_mha(roster) for roster in r_set] # all_rosters holds a list of MHAWrappers 
 
         all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
@@ -185,8 +187,13 @@ class NSGAII:
         
         return self.parent
 
+    def add_traj_to_rep_buff(self, traj, active_agents_indices):
+        for agent_idx in active_agents_indices:
+                for transition in traj[agent_idx]:
+                    self.replay_buffers[agent_idx].add(transition)
+
     def updated_evaluate_fitnesses(self, all_rosters):
-        # all_rosters is a list of SuperMHAs
+        # all_rosters is a list of MHAWrappers
 
         env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
 
@@ -199,8 +206,11 @@ class NSGAII:
                 roster.indices_from_fitness_lst.append(counter)
                 print("Added the index", counter)
                 counter += 1
-                # TODO: insert trajectory into Replay Buffer
+
                 traj, global_reward = env.rollout(roster.mha, team)
+                self.add_traj_to_rep_buff(traj, team)
+                # adding to replay buffer
+
                 g_list = [None] * len(global_reward)
 
                 for key in global_reward:
