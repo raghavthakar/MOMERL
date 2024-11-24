@@ -151,6 +151,7 @@ class NSGAII:
         
         # now we have all the scores for the rosters
         print(scores_dict)
+        return {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1])} # sorting the values of scores_dict based on the scores (value of each entry)
 
     def updated_evolve_pop(self):
         r_set = self.parent + (self.offspring or [])
@@ -162,8 +163,24 @@ class NSGAII:
         all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=all_fitnesses)
-        # only need to check this if you're not in the first generation of NSGA
-        self.find_best_rosters(ndf, all_rosters)
+        # only need to do this if you're not in the first generation of NSGA
+        scores_dict = self.find_best_rosters(ndf, all_rosters) #if self.offspring is not None else None
+        # print(scores_dict)
+        # {0: 24, 1: 15, 2: 15, 3: 19, 4: 0}
+
+        remaining_mhas = []
+
+        for k, v in scores_dict.items():
+            if(len(remaining_mhas) <= self.popsize // 2):
+                for ros in all_rosters:
+                    if(ros.super_id == k):
+                        remaining_mhas.append(ros.mha)
+                        print("found mha id:", k)
+                
+            else:
+                break
+        
+        
 
 
     def updated_evaluate_fitnesses(self, all_rosters):
