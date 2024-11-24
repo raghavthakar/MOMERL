@@ -129,6 +129,29 @@ class NSGAII:
         #return [[np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)] for j in range(num_mhas)]
         # this should return [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
     
+    def find_best_rosters(self, non_dom_fronts, all_rosters):
+        scores_dict = {mha.super_id: 0 for mha in all_rosters}
+        # intializing all scores to 0
+
+        curr_level = len(non_dom_fronts) - 1 # - 1 means that last front will all give values of 0
+
+        for front in non_dom_fronts:
+            for ind in front:
+                # TODO: find which MHA the team belongs to in a more efficient way
+
+                for ros in all_rosters:
+                    if(ind in ros.indices_from_fitness_lst):
+                        print("Found ind:", ind)
+                        scores_dict[ros.super_id] += curr_level
+                        break
+
+                
+
+            curr_level -= 1
+        
+        # now we have all the scores for the rosters
+        print(scores_dict)
+
     def updated_evolve_pop(self):
         r_set = self.parent + (self.offspring or [])
         # r_set has the population of mulitheaded actors from parent and offspring
@@ -136,7 +159,12 @@ class NSGAII:
         # now we need to form teams from r_set
         all_rosters = [self.form_teams_for_mha(roster) for roster in r_set] # all_rosters holds a list of SuperMHAs 
 
-        self.updated_evaluate_fitnesses(all_rosters)
+        all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
+        # time to sort these fitnesses
+        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=all_fitnesses)
+        # only need to check this if you're not in the first generation of NSGA
+        self.find_best_rosters(ndf, all_rosters)
+
 
     def updated_evaluate_fitnesses(self, all_rosters):
         # all_rosters is a list of SuperMHAs
@@ -165,8 +193,7 @@ class NSGAII:
             
             roster.fitnesses = fitnesses
             all_fitnesses.extend(fitnesses)
-        
-        print(all_fitnesses)
+
         # all_fitnesses has all the fitnesses as a 2d list for pygmo to sort
         
         return all_fitnesses
