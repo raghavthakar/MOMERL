@@ -108,7 +108,7 @@ class NSGAII:
         Creates mutated offspring population from the parent. Deepcopy when using this as it mutates the input
 
         Parameters:
-        - sorted_policies (list of (MultiHeadActors, fitness vector)): List containing the policies and their associated fitnesses
+        - sorted_policies (list of MultiHeadActors: List containing the policies and their associated fitnesses
 
         Returns:
         - new_pop (list of MultiHeadActors): List of perturbed MultiHeadActors
@@ -163,25 +163,30 @@ class NSGAII:
         all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
         ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=all_fitnesses)
-        # only need to do this if you're not in the first generation of NSGA
-        scores_dict = self.find_best_rosters(ndf, all_rosters) #if self.offspring is not None else None
-        # print(scores_dict)
-        # {0: 24, 1: 15, 2: 15, 3: 19, 4: 0}
-
-        remaining_mhas = []
-
-        for k, v in scores_dict.items():
-            if(len(remaining_mhas) <= self.popsize // 2):
-                for ros in all_rosters:
-                    if(ros.super_id == k):
-                        remaining_mhas.append(ros.mha)
-                        print("found mha id:", k)
-                
-            else:
-                break
         
-        
+        if(self.offspring is None):
+            remaining_mhas = [ros.mha for ros in all_rosters]
+        else:
+            # only need to do this if you're not in the first generation of NSGA
+            scores_dict = self.find_best_rosters(ndf, all_rosters) 
+            #if self.offspring is not None else None
 
+            remaining_mhas = []
+
+            for k, v in scores_dict.items():
+                if(len(remaining_mhas) <= self.popsize // 2):
+                    for ros in all_rosters:
+                        if(ros.super_id == k):
+                            remaining_mhas.append(ros.mha)
+                            print("found mha id:", k)
+                    
+                else:
+                    break
+        
+        self.parent = remaining_mhas
+        self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
+        
+        return self.parent
 
     def updated_evaluate_fitnesses(self, all_rosters):
         # all_rosters is a list of SuperMHAs
@@ -287,7 +292,9 @@ class NSGAII:
 if __name__ == "__main__":
     evo = NSGAII()
 
-    evo.updated_evolve_pop()
+    for i in range(100):
+        evo.updated_evolve_pop()
+    print("done")
 
     # for i in range(100):
     #     print("Gen", i)
