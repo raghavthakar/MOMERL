@@ -162,23 +162,20 @@ class NSGAII:
 
         all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
-        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=all_fitnesses)
         
         if(self.offspring is None):
             remaining_mhas = [ros.mha for ros in all_rosters]
         else:
+            front_crowd_sort = pg.sort_population_mo(points=all_fitnesses)
             # only need to do this if you're not in the first generation of NSGA
-            scores_dict = self.find_best_rosters(ndf, all_rosters) 
-            #if self.offspring is not None else None
-
             remaining_mhas = []
 
-            for k, v in scores_dict.items():
-                if(len(remaining_mhas) <= self.popsize // 2):
+            for ind in front_crowd_sort:
+                if(len(remaining_mhas) < self.popsize // 2):
                     for ros in all_rosters:
-                        if(ros.super_id == k):
+                        if(ros.super_id == ind):
                             remaining_mhas.append(ros.mha)
-                            print("found mha id:", k)
+                            print("found mha id:", ind)
                     
                 else:
                     break
