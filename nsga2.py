@@ -150,6 +150,7 @@ class NSGAII:
         - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
         """
         r_set = self.parent + (self.offspring or [])
+        print("length of r_set is", len(r_set))
         # r_set has the population of mulitheaded actors from parent and offspring
 
         # now we need to form teams from r_set
@@ -171,7 +172,7 @@ class NSGAII:
             remaining_mhas = []
 
             for k, v in scores_dict.items():
-                if(len(remaining_mhas) <= self.popsize // 2):
+                if(len(remaining_mhas) < self.popsize // 2):
                     for ros in all_rosters:
                         if(ros.super_id == k):
                             remaining_mhas.append(ros.mha)
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     evo = NSGAII()
 
     print_fits = True
-    for i in range(3):
+    for i in range(100):
         print("Generation:", i)
         evo.evolve_pop(print_fitness=True)
     print("done")
