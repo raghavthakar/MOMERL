@@ -114,7 +114,7 @@ class NSGAII:
         return mhainfo
         # this returns [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
 
-    def evolve_pop(self):
+    def evolve_pop(self, print_fitness=False):
         """
         Completes one generation of NSGA2 (combine offspring + parent, sort, retain best, and create offspring)
 
@@ -142,7 +142,8 @@ class NSGAII:
                     for ros in all_rosters:
                         if(ros.super_id == ind):
                             remaining_mhas.append(ros.mha)
-                            print("found mha id:", ind)
+                            # print("found mha id:", ind)
+                            print("Fitnesses for mha id:", ros.super_id, ros.fitnesses)
                     
                 else:
                     break
@@ -162,7 +163,7 @@ class NSGAII:
         Calls function to perform rollout then assigns fitness to each index
 
         Parameters:
-        - r_set (list of MultiHeadActors): Parent and offspring populations combined together
+        - r_set (list of MHAWrappers): Parent and offspring populations combined together
 
         Returns:
         - fitnesses (list of lists): List of fitness vectors, where each vector contains n values for n objectives
@@ -179,7 +180,7 @@ class NSGAII:
             counter = len(all_fitnesses)
             for team in roster.team_indices:
                 roster.indices_from_fitness_lst.append(counter)
-                print("Added the index", counter)
+                #print("Added the index", counter)
                 counter += 1
 
                 traj, global_reward = env.rollout(roster.mha, team)
@@ -206,8 +207,10 @@ class NSGAII:
 if __name__ == "__main__":
     evo = NSGAII()
 
+    print_fits = True
     for i in range(100):
-        evo.evolve_pop()
+        print("Generation:", i)
+        evo.evolve_pop(print_fitness=True)
     print("done")
 
     # for i in range(100):
