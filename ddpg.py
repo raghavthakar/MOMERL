@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from copy import deepcopy
-import random
 import yaml
 
 from MORoverEnv import MORoverEnv
@@ -10,6 +9,9 @@ from MORoverInterface import MORoverInterface
 from multiheaded_actor import MultiHeadActor
 from DDPGCritic import Critic
 from ReplayBuffer import ReplayBuffer
+
+# np.random.seed(4)
+# torch.manual_seed(4)
 
 criterion = nn.MSELoss()
 
@@ -96,6 +98,8 @@ class DDPG:
 
         for agent_idx in active_agents_indices:
             sampled_trans = self.replay_buffers[agent_idx].sample_transitions(num_samples=num_samples)
+            if sampled_trans is None:
+                return
 
             y_vals = []
             main_critic_predicted_vals = []
@@ -134,19 +138,33 @@ class DDPG:
             main_policy_vals = torch.stack(main_policy_vals)
             curr_states = torch.stack(curr_states)
 
+            # Freeze critic parameters during actor update
+            # for param in self.main_critics[agent_idx].parameters():
+            #     param.requires_grad = False
+
             main_policy_loss = -self.main_critics[agent_idx].forward(curr_states, main_policy_vals)
             main_policy_loss = main_policy_loss.mean()
             main_policy_loss.backward()
-            self.main_critic_optims[agent_idx].step()
+            self.main_policy_optim.step()
+
+            # Unfreeze critic parameters after actor update
+            # for param in self.main_critics[agent_idx].parameters():
+            #     param.requires_grad = True
+            
             print("Agent: ", agent_idx, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
 
             soft_update(self.target_critics[agent_idx], self.main_critics[agent_idx], self.tau)
+        
+            # Soft update the target policy after roster has been updated using all agents' experiences
             soft_update(self.target_policy, roster, self.tau)
 
         # print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    mha = MultiHeadActor(10, 2, 125, 2)
+    mha = MultiHeadActor(10, 2, 125, 1)
     ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
-    for i in range(3000):
-        ddpg.update_params(roster=mha, active_agents_indices=[0, 1], num_episodes=25, num_samples=250)
+    for i in range(10000):
+        print("Epoch:", i)
+        ddpg.update_params(roster=mha, active_agents_indices=[0], num_episodes=25, num_samples=250)
+
+    print(ddpg.interface.rollout(mha, [0], alg="ddpg", noisy_action=False))
