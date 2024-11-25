@@ -1,6 +1,9 @@
 import random
 import numpy as np
 
+# random.seed(4)
+# np.random.seed(4)
+
 class ReplayBuffer:
     def __init__(self, buff_size=10000):
         self.experiences = []
@@ -18,5 +21,7 @@ class ReplayBuffer:
             self.experiences.append(transition)
     
     def sample_transitions(self, num_samples=1000):
+        if num_samples > len(self.experiences):
+            return None
         sampled_transitions = np.random.choice(self.experiences, size=num_samples, replace=False)
         return sampled_transitions
