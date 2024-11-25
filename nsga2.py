@@ -11,9 +11,9 @@ class MHAWrapper():
     def __init__(self, mha, team_indices=None, fitnesses=None):
         self.mha = mha
         self.super_id = mha.id
-        self.team_indices = team_indices
+        self.team_indices = team_indices # this is which heads are active
         self.fitnesses = fitnesses
-        self.indices_from_fitness_lst = [] # makes it easier to do Borda Count
+        self.indices_from_fitness_lst = [] # this stores the indices associated with the fitness list that is sorted by pygmo
         
 
 class NSGAII:
@@ -115,6 +115,16 @@ class NSGAII:
         # this returns [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
     
     def find_best_rosters(self, front_crowd_sort, all_rosters):
+        """
+        Scores each roster (multiheaded actor) based on the teams that were formed from it
+
+        Parameters:
+        - front_crowd_sort (list of indices of fitnesses): An arg sorted list of fitnesses from all teams
+        - all_rosters (list of MHAWrappers): A list containing all the rosters
+
+        Returns:
+        - dict (dict where k:v is mha id: score ): Sorted (by values) dictionary in reverse order
+        """
         scores_dict = {mha.super_id: 0 for mha in all_rosters}
         # intializing all scores to 0
 
@@ -170,21 +180,6 @@ class NSGAII:
                     
                 else:
                     break
-
-            # for ind in front_crowd_sort:
-            #     print(all_fitnesses[ind])
-            #     print(ind)
-            #     if(len(remaining_mhas) < self.popsize // 2):
-            #         for ros in all_rosters:
-            #             print(ros.team_indices)
-            #             print(ros.indices_from_fitness_lst)
-            #             if(ind in ros.indices_from_fitness_lst):
-            #                 remaining_mhas.append(ros.mha)
-            #                 # print("found mha id:", ind)
-            #                 print("Fitnesses for mha id:", ros.super_id, ros.fitnesses)
-                    
-            #     else:
-            #         break
             print()
             for ros in all_rosters:
                 print("Second Fitnesses for mha id:", ros.super_id, ros.fitnesses)
