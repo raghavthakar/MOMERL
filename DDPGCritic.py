@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+# torch.manual_seed(4)
+
 class Critic(nn.Module):
     def __init__(self, num_state_inputs, num_actions, hidden_size):
         super(Critic, self).__init__()
