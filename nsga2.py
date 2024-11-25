@@ -30,9 +30,6 @@ class NSGAII:
         - noise_mean (float or int): Mean value for noise added during mutation 
         """
         # MERL hidden size is 100
-        # TODO: add code to insert traj into replay buffer
-        # TODO: make fitnesses into a dict where the mha id is the key
-
         assert num_heads >= team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert popsize % 2 == 0, "population size should be even"
 
@@ -52,6 +49,12 @@ class NSGAII:
         self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
     
     def _give_mha_id(self, mha):
+        """
+        Assigns a multiheaded actor (roster) an id to track later on
+
+        Parameters:
+        - mha (MultiHeadActor): Neural network policy
+        """
         mha.id = self.next_id
         self.next_id += 1
 
@@ -75,94 +78,56 @@ class NSGAII:
                     noise_b = self.noise_mean + torch.randn_like(layer.bias) * self.noise_std
                     noise_bias.append(noise_b)
                     layer.bias.data += noise_b
-        self._give_mha_id(policy) # TODO: Check if this is the right place to do it? It does seem so..test further
+        self._give_mha_id(policy)
     
-    def evaluate_fitnesses(self, r_set):
-        """
-        Calls function to perform rollout then assigns fitness to each index
-
-        Parameters:
-        - r_set (list of MultiHeadActors): Parent and offspring populations combined together
-
-        Returns:
-        - fitnesses (list of lists): List of fitness vectors, where each vector contains n values for n objectives
-        """
-        # can use multiprocessing for this later
-
-        fitnesses = [None] * len(r_set)
-        for ind, policy in enumerate(r_set):
-            traj, global_reward = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml").rollout(policy, [0, 1]) # TODO: swap this to be the active indices
-            # global_reward is a dict where the key is the objective and value is the reward of that objective -> {2:98, 1:45}
-
-            g_list = [None] * len(global_reward)
-            # converting the dict to a list
-            for key in global_reward:
-                g_list[key] = -global_reward[key] # Need to do -1 because the objectives in the dict start at 1
-            
-            assert None not in g_list, "One of the objectives was not found in the global_reward dict"
-            
-            fitnesses[ind] = g_list
-        
-        return fitnesses
-    
-    def make_new_pop(self, sorted_policies):
+    def make_new_pop(self, rosters):
         """
         Creates mutated offspring population from the parent. Deepcopy when using this as it mutates the input
 
         Parameters:
-        - sorted_policies (list of MultiHeadActors: List containing the policies and their associated fitnesses
+        - rosters (list of MultiHeadActors)
 
         Returns:
         - new_pop (list of MultiHeadActors): List of perturbed MultiHeadActors
         """
         new_pop = []
 
-        for team in sorted_policies:
-            self.mutate_policy(team)
-            new_pop.append(team)
+        for mha in rosters:
+            self.mutate_policy(mha)
+            new_pop.append(mha)
         return new_pop
     
     def form_teams_for_mha(self, mha):
+        """
+        Creates lists of indices where each list represents a team that is formed from the roster and adds this list to a MHAWrapper
+
+        Parameters:
+        - mha (MultiHeadActor): A roster of agent policies
+
+        Returns:
+        - mhainfo (MHAWrapper): Data about the given roster along with the teams formed
+        """
         team_list = [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)]
         
         mhainfo = MHAWrapper(mha=mha, team_indices=team_list)
 
         return mhainfo
-        #return [[np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)] for j in range(num_mhas)]
-        # this should return [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
-    
-    def find_best_rosters(self, non_dom_fronts, all_rosters):
-        scores_dict = {mha.super_id: 0 for mha in all_rosters}
-        # intializing all scores to 0
+        # this returns [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
 
-        curr_level = len(non_dom_fronts) - 1 # - 1 means that last front will all give values of 0
+    def evolve_pop(self):
+        """
+        Completes one generation of NSGA2 (combine offspring + parent, sort, retain best, and create offspring)
 
-        for front in non_dom_fronts:
-            for ind in front:
-                # TODO: find which MHA the team belongs to in a more efficient way
-
-                for ros in all_rosters:
-                    if(ind in ros.indices_from_fitness_lst):
-                        print("Found ind:", ind)
-                        scores_dict[ros.super_id] += curr_level
-                        break
-
-                
-
-            curr_level -= 1
-        
-        # now we have all the scores for the rosters
-        print(scores_dict)
-        return {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1])} # sorting the values of scores_dict based on the scores (value of each entry)
-
-    def updated_evolve_pop(self):
+        Returns:
+        - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
+        """
         r_set = self.parent + (self.offspring or [])
         # r_set has the population of mulitheaded actors from parent and offspring
 
         # now we need to form teams from r_set
         all_rosters = [self.form_teams_for_mha(roster) for roster in r_set] # all_rosters holds a list of MHAWrappers 
 
-        all_fitnesses = self.updated_evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
+        all_fitnesses = self.evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
         
         if(self.offspring is None):
@@ -192,7 +157,17 @@ class NSGAII:
                 for transition in traj[agent_idx]:
                     self.replay_buffers[agent_idx].add(transition)
 
-    def updated_evaluate_fitnesses(self, all_rosters):
+    def evaluate_fitnesses(self, all_rosters):
+        """
+        Calls function to perform rollout then assigns fitness to each index
+
+        Parameters:
+        - r_set (list of MultiHeadActors): Parent and offspring populations combined together
+
+        Returns:
+        - fitnesses (list of lists): List of fitness vectors, where each vector contains n values for n objectives
+        """
+        
         # all_rosters is a list of MHAWrappers
 
         env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
@@ -227,80 +202,12 @@ class NSGAII:
         
         return all_fitnesses
 
-        
-    def evolve_pop(self):
-        """
-        Completes one generation of NSGA2 (combine offspring + parent, sort, retain best, and create offspring)
-
-        Returns:
-        - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
-        """
-        r_set = self.parent + (self.offspring or []) # or statement for if first generation
-
-        fitnesses = self.evaluate_fitnesses(r_set)
-        ndf, dl, dc, ndr = pg.fast_non_dominated_sorting(points=fitnesses)
-
-        sorted_policies = []
-
-        for ind in ndf:
-            sorted_policies.append([(r_set[i], fitnesses[i]) for i in ind]) # tuple of (policy, fitness vector)
-        
-        #print("sorted policies")
-        #print(sorted_policies)
-        next_pop = []
-        curr_front = 0
-        if(self.offspring is None):
-            # first generation, adding all points from r_set (since it's only popsize / 2)
-            mha_policies = [team[0] for front in sorted_policies for team in front]
-            mutated_pop = self.make_new_pop(copy.deepcopy(mha_policies)) # this does mutate the param
-
-            self.parent = mha_policies
-            self.offspring = mutated_pop
-
-            print_set = self.parent
-            print_ids = [mh.id for mh in print_set]
-            print(print_ids)
-            print_set = self.offspring
-            print_ids = [mh.id for mh in print_set]
-            print(print_ids)
-            return self.parent
-        else:
-            
-            while((curr_front < len(sorted_policies)) and len(next_pop) + len(sorted_policies[curr_front]) <= (self.popsize // 2)):
-                # We can add all the points from this front
-                for pol in sorted_policies[curr_front]:
-                    next_pop.append(pol[0])
-                curr_front += 1
-            
-            
-            # we have added all the pareto fronts we can, now we can only add some from the next rank
-            remaining_size = (self.popsize // 2) - len(next_pop)
-            if(remaining_size > 0 and curr_front < len(sorted_policies)): # true if the current front index is valid, unless all were added in the previous step
-                # sort the current front based on crowding distance
-                sorted_crowd_front = sorted_policies[curr_front]
-                sorted_crowd_front = list(sorted(sorted_crowd_front, key=lambda x: pg.sort_population_mo([x[1]]))) # x[1] is the objectives     
-
-                for i in range(remaining_size):
-                    pol = copy.deepcopy(sorted_crowd_front[i][0])
-                    self.mutate_policy(pol)
-                    next_pop.append(pol) # getting the policy, mutating it, then adding  it to population
-            
-            self.parent = next_pop
-            self.offspring = self.make_new_pop(copy.deepcopy(next_pop))
-
-            print_set = self.parent
-            print_ids = [mh.id for mh in print_set]
-            # print(print_ids)
-            print_set = self.offspring
-            print_ids = [mh.id for mh in print_set]
-            # print(print_ids)
-            return self.parent
 
 if __name__ == "__main__":
     evo = NSGAII()
 
     for i in range(100):
-        evo.updated_evolve_pop()
+        evo.evolve_pop()
     print("done")
 
     # for i in range(100):
