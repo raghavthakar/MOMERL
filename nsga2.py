@@ -113,6 +113,24 @@ class NSGAII:
 
         return mhainfo
         # this returns [[indices for team 1], [indices for team 2]...[indices for team n]] -> all for 1 mha
+    
+    def find_best_rosters(self, front_crowd_sort, all_rosters):
+        scores_dict = {mha.super_id: 0 for mha in all_rosters}
+        # intializing all scores to 0
+
+        count_value = len(front_crowd_sort) - 1 # -1 so the last team gets a score of 0
+        print("count_value", count_value)
+
+        for team_ind in front_crowd_sort:
+            for ros in all_rosters:
+                if(team_ind in ros.indices_from_fitness_lst):
+                    scores_dict[ros.super_id] += count_value
+                    break
+            
+            count_value -= 1
+    
+        return {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1], reverse=True)} # sorting the values of scores_dict based on the scores (value of each entry)
+
 
     def evolve_pop(self, print_fitness=False):
         """
@@ -133,20 +151,43 @@ class NSGAII:
         if(self.offspring is None):
             remaining_mhas = [ros.mha for ros in all_rosters]
         else:
+            # print(all_fitnesses)
             front_crowd_sort = pg.sort_population_mo(points=all_fitnesses)
+
+            scores_dict = self.find_best_rosters(front_crowd_sort, all_rosters)
+            print(scores_dict)
+            # print(front_crowd_sort)
             # only need to do this if you're not in the first generation of NSGA
             remaining_mhas = []
 
-            for ind in front_crowd_sort:
-                if(len(remaining_mhas) < self.popsize // 2):
+            for k, v in scores_dict.items():
+                if(len(remaining_mhas) <= self.popsize // 2):
                     for ros in all_rosters:
-                        if(ros.super_id == ind):
+                        if(ros.super_id == k):
                             remaining_mhas.append(ros.mha)
-                            # print("found mha id:", ind)
                             print("Fitnesses for mha id:", ros.super_id, ros.fitnesses)
+                            break
                     
                 else:
                     break
+
+            # for ind in front_crowd_sort:
+            #     print(all_fitnesses[ind])
+            #     print(ind)
+            #     if(len(remaining_mhas) < self.popsize // 2):
+            #         for ros in all_rosters:
+            #             print(ros.team_indices)
+            #             print(ros.indices_from_fitness_lst)
+            #             if(ind in ros.indices_from_fitness_lst):
+            #                 remaining_mhas.append(ros.mha)
+            #                 # print("found mha id:", ind)
+            #                 print("Fitnesses for mha id:", ros.super_id, ros.fitnesses)
+                    
+            #     else:
+            #         break
+            print()
+            for ros in all_rosters:
+                print("Second Fitnesses for mha id:", ros.super_id, ros.fitnesses)
         
         self.parent = remaining_mhas
         self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
@@ -208,10 +249,12 @@ if __name__ == "__main__":
     evo = NSGAII()
 
     print_fits = True
-    for i in range(100):
+    for i in range(3):
         print("Generation:", i)
         evo.evolve_pop(print_fitness=True)
     print("done")
+
+    print(evo.next_id)
 
     # for i in range(100):
     #     print("Gen", i)
