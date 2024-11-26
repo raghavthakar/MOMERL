@@ -7,7 +7,7 @@ import copy
 import numpy as np
 import yaml
 import more_itertools
-#import ReplayBuffer as replay_buffer
+import ReplayBuffer as replay_buffer
 
 class MHAWrapper():
     def __init__(self, mha, team_indices=None, fitnesses=None):
@@ -189,13 +189,29 @@ class NSGAII:
     
         return {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1], reverse=True)} # sorting the values of scores_dict based on the scores (value of each entry)
 
+    def get_roster_for_RL(self, all_fitnesses, all_rosters):
+        print("allfits:", all_fitnesses)
+        non_dom_lst = pg.non_dominated_front_2d(points=all_fitnesses).tolist()
+        print("nondomlist:",non_dom_lst)
+        team_picked = random.choice(non_dom_lst) # this is the index because non_dom_lst uses args
+        print("team_picked:", team_picked)
+
+        for ros in all_rosters:
+            if(team_picked in ros.indices_from_fitness_lst):
+                print("mha is found in roster func, id:", ros.super_id)
+                print("indices in fitness:",ros.indices_from_fitness_lst)
+                print("team_indices", ros.team_indices)
+                return (ros.mha, ros.team_indices[team_picked % self.num_teams_formed_each_MHA])
+
+
 
     def evolve_pop(self, print_fitness=False):
         """
         Completes one generation of NSGA2 (combine offspring + parent, sort, retain best, and create offspring)
 
         Returns:
-        - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
+        - champ_mha (MultiHeadActor): A roster from which a team when evaluated was on the Pareto Front
+        - champ_team (list of ints): A list of the heads of the roster that are active (list of ints)
         """
         r_set = self.parent + (self.offspring or [])
         print("length of r_set is", len(r_set))
@@ -206,11 +222,16 @@ class NSGAII:
 
         all_fitnesses = self.evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
+
+        champ_mha, champ_team = self.get_roster_for_RL(all_fitnesses, all_rosters)
+        print("MHA id selected:", champ_mha.id)
+        print("Team picked", champ_team)
         
         if(self.offspring is None):
             remaining_mhas = [ros.mha for ros in all_rosters]
         else:
             # print(all_fitnesses)
+            
             front_crowd_sort = pg.sort_population_mo(points=all_fitnesses)
 
             scores_dict = self.find_best_rosters(front_crowd_sort, all_rosters)
@@ -236,7 +257,7 @@ class NSGAII:
         self.parent = remaining_mhas
         self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
         
-        return self.parent
+        return (copy.deepcopy(champ_mha), copy.deepcopy(champ_team))
 
     def add_traj_to_rep_buff(self, traj, active_agents_indices):
         for agent_idx in active_agents_indices:
@@ -290,7 +311,8 @@ class NSGAII:
 
 
 if __name__ == "__main__":
-    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
+    r_buffs = [replay_buffer.ReplayBuffer("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml") for _ in range(6)]
+    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml", replay_buffers=r_buffs)
 
     print_fits = True
     for i in range(100):
