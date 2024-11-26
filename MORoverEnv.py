@@ -3,8 +3,6 @@ import copy
 import math
 import numpy as np
 
-# np.random.seed(4)
-
 class POI:
     def __init__(self, obj, location, radius, coupling, obs_window, reward, repeat):
         """

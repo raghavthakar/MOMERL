@@ -1,9 +1,6 @@
 import random
 import numpy as np
 
-# random.seed(4)
-# np.random.seed(4)
-
 class ReplayBuffer:
     def __init__(self, buff_size=10000):
         self.experiences = []

@@ -6,9 +6,6 @@ import math
 from multiheaded_actor import MultiHeadActor
 from MORoverEnv import MORoverEnv
 
-# np.random.seed(4)
-# torch.manual_seed(4)
-
 class MORoverInterface():
     def __init__(self, rover_config_filename):
         """

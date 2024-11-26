@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# torch.manual_seed(4)
-
 class MultiHeadActor(nn.Module):
     """
     Multi-headed actor network for DDPG.
