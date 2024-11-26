@@ -28,6 +28,8 @@ class MultiHeadActor(nn.Module):
         # Initialize weights
         self.apply(self._weights_init)
 
+        self.id = mha_id
+
     def forward(self, state):
         """
         Forward pass through the shared trunk of the network.
