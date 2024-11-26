@@ -18,5 +18,7 @@ class ReplayBuffer:
             self.experiences.append(transition)
     
     def sample_transitions(self, num_samples=1000):
+        if num_samples > len(self.experiences):
+            return None
         sampled_transitions = np.random.choice(self.experiences, size=num_samples, replace=False)
         return sampled_transitions
