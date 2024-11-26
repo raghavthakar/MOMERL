@@ -257,7 +257,11 @@ class NSGAII:
         self.parent = remaining_mhas
         self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
         
-        return (copy.deepcopy(champ_mha), copy.deepcopy(champ_team))
+        #return (copy.deepcopy(champ_mha), copy.deepcopy(champ_team))
+        copied_champ_mha = copy.deepcopy(champ_mha)
+        self._give_mha_id(copied_champ_mha)
+
+        return (copied_champ_mha, copy.deepcopy(champ_team))
 
     def add_traj_to_rep_buff(self, traj, active_agents_indices):
         for agent_idx in active_agents_indices:
