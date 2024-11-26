@@ -12,11 +12,14 @@ class MARMOT:
         self._read_config()
 
         # Load up as many replay buffers as agents on a roster
-        self.rep_buffs = [ReplayBuffer(alg_config_filename) for _ in range(self.roster_size)] # NOTE: both NSGA and DDPG mutate the replay buffers
+        self.rep_buffs = [ReplayBuffer.ReplayBuffer(alg_config_filename) for _ in range(self.roster_size)] # NOTE: both NSGA and DDPG mutate the replay buffers
 
         # Init the RL and EA instances
-        self.RL = ddpg.DDPG(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, replay_buffers=self.rep_buffs)
         self.EA = nsga2.NSGAII(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, replay_buffers=self.rep_buffs)
+        chosen_roster, champion_indices = self.EA.evolve_pop()
+        self.RL = ddpg.DDPG(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, init_target_policy=chosen_roster, replay_buffers=self.rep_buffs)
+        updated_roster = self.RL.update_params(chosen_roster, champion_indices)
+        self.EA.offspring.append(updated_roster)
 
     def _read_config(self):
         """Read and load MARMOT configuration from the YAML file."""
@@ -29,6 +32,13 @@ class MARMOT:
     def _load_config(self):
         self.roster_size = self.config_data["Shared"]["roster_size"]
         self.num_gens = self.config_data["Meta"]["num_gens"]
+    
+    def run(self):
+        for gen in range(self.num_gens):
+            chosen_roster, champion_indices = self.EA.evolve_pop()
+            updated_roster = self.RL.update_params(chosen_roster, champion_indices)
+            self.EA.offspring.append(updated_roster)
 
 if __name__ == "__main__":
     marmot = MARMOT(sys.argv[1], sys.argv[2])
+    marmot.run()
