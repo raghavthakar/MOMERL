@@ -29,7 +29,7 @@ def soft_update(target, source, tau):
         )
 
 class DDPG:
-    def __init__(self, alg_config_filename, rover_config_filename, init_target_policy):
+    def __init__(self, alg_config_filename, rover_config_filename, init_target_policy, replay_buffers):
         # Initialise the test domain
         self.interface = MORoverInterface(rover_config_filename)
 
@@ -41,7 +41,7 @@ class DDPG:
         self.main_critics = []
         self.target_critics = []
         self.main_critic_optims = []
-        self.replay_buffers = []
+        self.replay_buffers = replay_buffers
 
         for i in range(self.roster_size):
             self.main_critics.append(Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size))
@@ -50,8 +50,6 @@ class DDPG:
             hard_update(self.target_critics[i], self.main_critics[i])
 
             self.main_critic_optims.append(torch.optim.Adam(self.main_critics[-1].parameters(), lr=self.critic_lr))
-
-            self.replay_buffers.append(ReplayBuffer(10000))
         
         # one main and target policy
         # self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)

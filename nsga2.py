@@ -7,7 +7,7 @@ import copy
 import numpy as np
 import yaml
 import more_itertools
-import ReplayBuffer as replay_buffer
+#import ReplayBuffer as replay_buffer
 
 class MHAWrapper():
     def __init__(self, mha, team_indices=None, fitnesses=None):
@@ -19,7 +19,7 @@ class MHAWrapper():
         
 
 class NSGAII:
-    def __init__(self, alg_config_filename, rover_config_filename, state_size=10, num_actions=2):
+    def __init__(self, alg_config_filename, rover_config_filename, replay_buffers, state_size=10, num_actions=2):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -50,7 +50,7 @@ class NSGAII:
         self.parent = [mha.MultiHeadActor(state_size, num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
-        self.replay_buffers = [replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
+        self.replay_buffers = replay_buffers#[replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
 
         # self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
 
