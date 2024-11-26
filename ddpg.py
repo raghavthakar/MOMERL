@@ -1,3 +1,4 @@
+import random
 import torch
 import torch.nn as nn
 import numpy as np
@@ -10,8 +11,9 @@ from multiheaded_actor import MultiHeadActor
 from DDPGCritic import Critic
 from ReplayBuffer import ReplayBuffer
 
-# np.random.seed(4)
-# torch.manual_seed(4)
+np.random.seed(2024)
+torch.manual_seed(2024)
+random.seed(2024)
 
 criterion = nn.MSELoss()
 
@@ -52,10 +54,12 @@ class DDPG:
             self.replay_buffers.append(ReplayBuffer(10000))
         
         # one main and target policy
-        self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
-        self.target_policy = deepcopy(init_target_policy)
+        # self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
+        # self.target_policy = deepcopy(init_target_policy)
+        self.target_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
+        hard_update(self.target_policy, init_target_policy)
         
-        self.main_policy_optim = torch.optim.Adam(self.main_policy.parameters(), lr=self.actor_lr)
+        self.main_policy_optim = torch.optim.Adam(init_target_policy.parameters(), lr=self.actor_lr)
     
     def _read_config(self):
         """Read and load DDPG configuration from the YAML file."""
@@ -122,6 +126,10 @@ class DDPG:
             main_critic_predicted_vals = torch.cat(main_critic_predicted_vals)
             y_vals = torch.cat(y_vals)
             main_critic_loss = criterion(main_critic_predicted_vals, y_vals)
+
+            # Zero optimizer gradients
+            self.main_critic_optims[agent_idx].zero_grad()
+
             main_critic_loss.backward()
             self.main_critic_optims[agent_idx].step()
 
@@ -139,17 +147,21 @@ class DDPG:
             curr_states = torch.stack(curr_states)
 
             # Freeze critic parameters during actor update
-            # for param in self.main_critics[agent_idx].parameters():
-            #     param.requires_grad = False
+            for param in self.main_critics[agent_idx].parameters():
+                param.requires_grad = False
 
             main_policy_loss = -self.main_critics[agent_idx].forward(curr_states, main_policy_vals)
             main_policy_loss = main_policy_loss.mean()
+
+            # Zero optimizer gradients
+            self.main_policy_optim.zero_grad()
+
             main_policy_loss.backward()
             self.main_policy_optim.step()
 
             # Unfreeze critic parameters after actor update
-            # for param in self.main_critics[agent_idx].parameters():
-            #     param.requires_grad = True
+            for param in self.main_critics[agent_idx].parameters():
+                param.requires_grad = True
             
             print("Agent: ", agent_idx, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
 
@@ -161,10 +173,10 @@ class DDPG:
         # print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    mha = MultiHeadActor(10, 2, 125, 1)
-    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
-    for i in range(10000):
+    mha = MultiHeadActor(10, 2, 125, 2)
+    ddpg = DDPG("/home/raghav/Research/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/raghav/Research/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
+    for i in range(3000):
         print("Epoch:", i)
-        ddpg.update_params(roster=mha, active_agents_indices=[0], num_episodes=25, num_samples=250)
+        ddpg.update_params(roster=mha, active_agents_indices=[0, 1], num_episodes=25, num_samples=250)
 
-    print(ddpg.interface.rollout(mha, [0], alg="ddpg", noisy_action=False))
+    print(ddpg.interface.rollout(mha, [0, 1], alg="ddpg", noisy_action=False))
