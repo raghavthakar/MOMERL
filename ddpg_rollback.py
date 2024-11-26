@@ -8,6 +8,10 @@ from MORoverEnv import MORoverEnv
 from MORoverInterface import MORoverInterface
 from multiheaded_actor import MultiHeadActor
 
+np.random.seed(2024)
+torch.manual_seed(2024)
+random.seed(2024)
+
 criterion = nn.MSELoss()
 
 def hard_update(target, source):
@@ -33,8 +37,6 @@ class Critic(nn.Module):
         self.apply(self._weights_init_value_fn)
 
         self.loss_fn = nn.MSELoss()
-
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
     
     # Initialize Policy weights
     def _weights_init_value_fn(self, m):
@@ -167,6 +169,6 @@ class DDPG2:
         print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
-    ddpg = DDPG2("/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
+    ddpg = DDPG2("/home/raghav/Research/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml")
     ddpg.update_params(3000, 25, 250)
     # ddpg.update_params(1, 1, 100)
