@@ -1,5 +1,8 @@
-NSGA-II:
-  pop_size: 10
+NSGAII:
+  popsize: 16
+  noise_std: 0.3
+  noise_mean: 0
+  num_teams_formed_each_MHA: 15
 
 DDPG:
   critic_hidden_size: 25
@@ -15,4 +18,5 @@ ReplayBuffer:
   buffer_size: 10000
 
 Shared:
-  roster_size: 2
+  roster_size: 6
+  team_size: 3

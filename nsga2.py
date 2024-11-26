@@ -1,10 +1,11 @@
 import pygmo as pg
 import multiheaded_actor as mha
 import torch
-import MORoverInterface
+from MORoverInterface import MORoverInterface
 import random
 import copy
 import numpy as np
+import yaml
 import more_itertools
 import ReplayBuffer as replay_buffer
 
@@ -18,7 +19,7 @@ class MHAWrapper():
         
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=8, popsize=16, num_heads=6, team_size=3, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=15):
+    def __init__(self, alg_config_filename, rover_config_filename, state_size=10, num_actions=2):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -30,27 +31,62 @@ class NSGAII:
         - noise_std (float or int): Standard deviation value for noise added during mutation
         - noise_mean (float or int): Mean value for noise added during mutation 
         """
-        # MERL hidden size is 100
-        assert num_heads >= team_size, "number of heads of MHA must be gte the number of agents on a team"
-        assert popsize % 2 == 0, "population size should be even"
+        self.interface = MORoverInterface(rover_config_filename)
+        self.config_filename = alg_config_filename
+        self._read_config()
 
-        self.popsize = popsize
-        self.noise_std = noise_std
-        self.noise_mean = noise_mean
+        # MERL hidden size is 100
+        assert self.num_heads >= self.team_size, "number of heads of MHA must be gte the number of agents on a team"
+        assert self.popsize % 2 == 0, "population size should be even"
+
+        # self.popsize = popsize
+        # self.noise_std = noise_std
+        # self.noise_mean = noise_mean
         self.state_size = state_size
         self.num_actions = num_actions
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.team_size = team_size
-        self.parent = [mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads, mha_id) for mha_id in range(self.popsize // 2)]
+        # self.hidden_size = hidden_size
+        # self.num_heads = num_heads
+        # self.team_size = team_size
+        self.parent = [mha.MultiHeadActor(state_size, num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
         self.replay_buffers = [replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
 
-        self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
+        # self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
 
         self.all_team_combos = list(more_itertools.distinct_combinations(range(self.num_heads), self.team_size))
         assert len(self.all_team_combos) >= self.num_teams_formed_each_MHA, "There are fewer unique team combinations than the specified number of teams to form"
+    
+    def _read_config(self):
+        """Read and load NSGAII configuration from the YAML file."""
+        with open(self.config_filename, 'r') as config_file:
+            self.config_data = yaml.safe_load(config_file)
+            print('[NSGAII]: YAML config read.')
+
+        self._load_config()
+    
+    def _load_config(self):
+        """Load internal NSGAII configuration."""
+        self.popsize = self.config_data["NSGAII"]["popsize"]
+        self.noise_std = self.config_data["NSGAII"]["noise_std"]
+        self.noise_mean = self.config_data["NSGAII"]["noise_mean"]
+        self.hidden_size = self.config_data["MHA"]["hidden_size"]
+        self.num_heads = self.config_data["Shared"]["roster_size"]
+        self.team_size = self.config_data["Shared"]["team_size"]
+        self.num_teams_formed_each_MHA = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
+
+
+        # self.actor_hidden_size = self.config_data['MHA']['hidden_size']
+        # self.actor_lr = self.config_data['DDPG']['actor_lr']
+
+        # self.critic_hidden_size = self.config_data['DDPG']['critic_hidden_size']
+        # self.soft_update_tau = self.config_data['DDPG']['soft_update_tau']
+        # self.critic_value_discount = self.config_data['DDPG']['critic_value_discount']
+        # self.critic_lr = self.config_data['DDPG']['critic_lr']
+        # self.tau = self.config_data['DDPG']['soft_update_tau']
+        # self.discount = self.config_data['DDPG']['critic_value_discount']
+
+        # self.roster_size = self.config_data['Shared']['roster_size']
     
     def _give_mha_id(self, mha):
         """
@@ -220,7 +256,7 @@ class NSGAII:
         
         # all_rosters is a list of MHAWrappers
 
-        env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
+        # env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
 
         all_fitnesses = []
 
@@ -232,7 +268,7 @@ class NSGAII:
                 #print("Added the index", counter)
                 counter += 1
 
-                traj, global_reward = env.rollout(roster.mha, team)
+                traj, global_reward = self.interface.rollout(roster.mha, team)
                 self.add_traj_to_rep_buff(traj, team)
                 # adding to replay buffer
 
@@ -254,7 +290,7 @@ class NSGAII:
 
 
 if __name__ == "__main__":
-    evo = NSGAII()
+    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
 
     print_fits = True
     for i in range(100):

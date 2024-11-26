@@ -1,5 +1,5 @@
 Meta:
-  num_objs: 1
+  num_objs: 2
 
 Environment:
   dimensions: [10, 10]
@@ -19,7 +19,7 @@ Environment:
       obs_window: [0, 90]
       reward: 4
       repeat: True
-    - obj: 0
+    - obj: 1
       location: [1, 3]
       radius: 3
       coupling: 1
@@ -28,7 +28,7 @@ Environment:
       repeat: True
 
 Agents:
-  starting_locs: [[3, 3], [7, 3]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
-  num_sensors: [4, 4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
-  observation_radii: [15, 15]
-  max_step_sizes: [2, 2]
+  starting_locs: [[3, 3], [7, 3], [1,1]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
+  num_sensors: [4, 4, 4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
+  observation_radii: [15, 15, 15]
+  max_step_sizes: [2, 2, 2]
