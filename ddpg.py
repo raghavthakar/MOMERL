@@ -94,7 +94,7 @@ class DDPG:
                     self.replay_buffers[agent_idx].add(transition)
 
 
-    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, num_samples=100):
+    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, num_samples=100) -> MultiHeadActor:
         # perform rollouts with noisy version of this policy and update the replay buffer with experiences
         self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=num_episodes)
 
@@ -168,7 +168,8 @@ class DDPG:
         # Soft update the target policy after roster has been updated using all agents' experiences
         soft_update(self.target_policy, roster, self.tau)
 
-        # print(self.interface.rollout(self.main_policy, [0]))
+        # return the updated roster
+        return roster
 
 if __name__ == "__main__":
     mha = MultiHeadActor(10, 2, 125, 2)
