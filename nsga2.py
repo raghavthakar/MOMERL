@@ -5,6 +5,7 @@ import MORoverInterface
 import random
 import copy
 import numpy as np
+import more_itertools
 import ReplayBuffer as replay_buffer
 
 class MHAWrapper():
@@ -17,7 +18,7 @@ class MHAWrapper():
         
 
 class NSGAII:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=4, popsize=10, num_heads=3, team_size=2, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=10):
+    def __init__(self, state_size=10, num_actions=2, hidden_size=8, popsize=16, num_heads=6, team_size=3, noise_std=0.3, noise_mean=0, num_teams_formed_each_MHA=15):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -47,6 +48,9 @@ class NSGAII:
         self.replay_buffers = [replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
 
         self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
+
+        self.all_team_combos = list(more_itertools.distinct_combinations(range(self.num_heads), self.team_size))
+        assert len(self.all_team_combos) >= self.num_teams_formed_each_MHA, "There are fewer unique team combinations than the specified number of teams to form"
     
     def _give_mha_id(self, mha):
         """
@@ -107,8 +111,16 @@ class NSGAII:
         Returns:
         - mhainfo (MHAWrapper): Data about the given roster along with the teams formed
         """
-        team_list = [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)]
-        
+        #team_list = [np.random.choice(self.num_heads, size=self.team_size, replace=False).tolist() for _ in range(self.num_teams_formed_each_MHA)]
+        indices_to_pick = [np.random.choice(len(self.all_team_combos), size=1, replace=False).tolist()[0] for _ in range(self.num_teams_formed_each_MHA)]
+
+        team_list = [self.all_team_combos[i] for i in indices_to_pick]
+        # print(self.all_team_combos)
+        # print(indices_to_pick)
+        # print(team_list)
+        # print("Teams have been picked")
+        #team_list = [np.random.choice(all_team_combos, size=self.num_teams_formed_each_MHA, replace=False).tolist()]
+
         mhainfo = MHAWrapper(mha=mha, team_indices=team_list)
 
         return mhainfo
