@@ -8,7 +8,7 @@ class MultiHeadActor(nn.Module):
     Each head represents actions for a specific policy or agent.
     """
 
-    def __init__(self, num_state_inputs, num_actions, hidden_size, num_heads):
+    def __init__(self, num_state_inputs, num_actions, hidden_size, num_heads, mha_id=-1):
         super(MultiHeadActor, self).__init__()
 
         self.num_heads = num_heads
