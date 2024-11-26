@@ -15,4 +15,4 @@ ReplayBuffer:
   buffer_size: 10000
 
 Shared:
-  roster_size: 8
+  roster_size: 2
