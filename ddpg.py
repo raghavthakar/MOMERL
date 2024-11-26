@@ -167,14 +167,14 @@ class DDPG:
 
             soft_update(self.target_critics[agent_idx], self.main_critics[agent_idx], self.tau)
         
-            # Soft update the target policy after roster has been updated using all agents' experiences
-            soft_update(self.target_policy, roster, self.tau)
+        # Soft update the target policy after roster has been updated using all agents' experiences
+        soft_update(self.target_policy, roster, self.tau)
 
         # print(self.interface.rollout(self.main_policy, [0]))
 
 if __name__ == "__main__":
     mha = MultiHeadActor(10, 2, 125, 2)
-    ddpg = DDPG("/home/raghav/Research/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/raghav/Research/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
+    ddpg = DDPG("/home/thakarr/IJCAI25/MOMERL/config/MARMOTConfig.yaml", "/home/thakarr/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml", init_target_policy=mha)
     for i in range(3000):
         print("Epoch:", i)
         ddpg.update_params(roster=mha, active_agents_indices=[0, 1], num_episodes=25, num_samples=250)
