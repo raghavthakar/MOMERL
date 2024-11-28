@@ -197,13 +197,13 @@ class NSGAII:
         print("team_picked:", team_picked)
 
         for ros in all_rosters:
+            print("this ros.indices from lst", ros.super_id, "vals:", ros.indices_from_fitness_lst)
             if(team_picked in ros.indices_from_fitness_lst):
                 print("mha is found in roster func, id:", ros.super_id)
                 print("indices in fitness:",ros.indices_from_fitness_lst)
                 print("team_indices", ros.team_indices)
-                return (ros.mha, ros.team_indices[team_picked % self.num_teams_formed_each_MHA])
-
-
+                print("index to grab from team", team_picked - ros.indices_from_fitness_lst[0])
+                return (ros.mha, ros.team_indices[team_picked - ros.indices_from_fitness_lst[0]]) # getting the index value of team_indices by subtracting the current value by the first value in the list
 
     def evolve_pop(self, print_fitness=False):
         """
