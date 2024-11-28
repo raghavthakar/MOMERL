@@ -19,7 +19,7 @@ class MHAWrapper():
         
 
 class NSGAII:
-    def __init__(self, alg_config_filename, rover_config_filename, replay_buffers, state_size=10, num_actions=2):
+    def __init__(self, alg_config_filename, rover_config_filename, replay_buffers):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -36,18 +36,19 @@ class NSGAII:
         self._read_config()
 
         # MERL hidden size is 100
+        self.team_size = self.interface.get_team_size()
         assert self.num_heads >= self.team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert self.popsize % 2 == 0, "population size should be even"
 
         # self.popsize = popsize
         # self.noise_std = noise_std
         # self.noise_mean = noise_mean
-        self.state_size = state_size
-        self.num_actions = num_actions
+        self.state_size = self.interface.get_state_size()
+        self.num_actions = self.interface.get_action_size()
         # self.hidden_size = hidden_size
         # self.num_heads = num_heads
         # self.team_size = team_size
-        self.parent = [mha.MultiHeadActor(state_size, num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
+        self.parent = [mha.MultiHeadActor(self.state_size, self.num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
         self.replay_buffers = replay_buffers#[replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
@@ -72,7 +73,6 @@ class NSGAII:
         self.noise_mean = self.config_data["NSGAII"]["noise_mean"]
         self.hidden_size = self.config_data["MHA"]["hidden_size"]
         self.num_heads = self.config_data["Shared"]["roster_size"]
-        self.team_size = self.config_data["Shared"]["team_size"]
         self.num_teams_formed_each_MHA = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
 
 
