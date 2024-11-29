@@ -1,10 +1,17 @@
 import sys
 import yaml
+import numpy as np
+import torch
+import random
 
 import ddpg
 import nsga2
 import MORoverInterface
 import ReplayBuffer
+
+np.random.seed(2024)
+torch.manual_seed(2024)
+random.seed(2024)
 
 class MARMOT:
     def __init__(self, alg_config_filename, rover_config_filename):
@@ -35,7 +42,9 @@ class MARMOT:
     
     def run(self):
         for gen in range(self.num_gens):
+            print("Generation:", gen)
             chosen_roster, champion_indices = self.EA.evolve_pop()
+            
             updated_roster = self.RL.update_params(chosen_roster, champion_indices)
             self.EA.offspring.append(updated_roster)
 
