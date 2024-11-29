@@ -11,9 +11,9 @@ from multiheaded_actor import MultiHeadActor
 from DDPGCritic import Critic
 from ReplayBuffer import ReplayBuffer
 
-np.random.seed(2024)
-torch.manual_seed(2024)
-random.seed(2024)
+# np.random.seed(2024)
+# torch.manual_seed(2024)
+# random.seed(2024)
 
 criterion = nn.MSELoss()
 
