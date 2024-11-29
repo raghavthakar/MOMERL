@@ -307,8 +307,10 @@ class MORoverEnv:
                         agent_count += 1
 
                 # Add counts to observations
-                observation.append(poi_count)
-                observation.append(agent_count)
+                observation.append(poi_count / len(self.pois)) # normalise wrt total pois
+                observation.append(agent_count / len(rover_locations)) # Normalise wrt total rovers
+                # observation.append(poi_count)
+                # observation.append(agent_count)
 
             elif num_dimensions == 2:
                 # 2D environment
@@ -328,6 +330,10 @@ class MORoverEnv:
                         cone_index = int(angle // cone_angle)
                         poi_observations[cone_index] += 1
 
+                # Normalise the POI readings
+                for i in range(len(poi_observations)):
+                    poi_observations[i] /= len(self.pois)
+
                 # Count other agents within observation radius and cones
                 for other_idx, other_pos in enumerate(rover_locations):
                     if other_idx == idx:
@@ -340,6 +346,10 @@ class MORoverEnv:
                         angle = math.degrees(math.atan2(dy, dx)) % 360
                         cone_index = int(angle // cone_angle)
                         agent_observations[cone_index] += 1
+
+                # Normalise the agent count
+                for i in range(len(agent_observations)):
+                    agent_observations[i] /= len(rover_locations)
 
                 # Add counts to observations
                 observation.extend(poi_observations)
