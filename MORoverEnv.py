@@ -120,6 +120,9 @@ class MORoverEnv:
         self.local_reward_mode = self.config_data['Environment']['local_reward_mode']
         self.local_reward_kneecap = self.config_data['Environment']['local_reward_kneecap']
         self.local_reward_temp = self.config_data['Environment']['local_reward_temp']
+        self.observation_mode = self.config_data['Environment']['observation_mode']
+        self.poi_obs_temp = self.config_data['Environment']['poi_obs_temp'] # Temp for state info of the pois -> e^-x/temp
+        self.agent_obs_temp = self.config_data['Environment']['agent_obs_temp'] # Temp for state info of the agents -> e^-x/temp
 
         # Initialize POIs and store initial configuration
         self.pois = [POI(**poi) for poi in self.config_data['Environment']['pois']]
@@ -309,15 +312,15 @@ class MORoverEnv:
                 # Add counts to observations
                 observation.append(poi_count / len(self.pois)) # normalise wrt total pois
                 observation.append(agent_count / len(rover_locations)) # Normalise wrt total rovers
-                # observation.append(poi_count)
-                # observation.append(agent_count)
 
             elif num_dimensions == 2:
                 # 2D environment
                 num_cones = num_sensors
                 cone_angle = 360.0 / num_cones
-                poi_observations = [0] * num_cones
-                agent_observations = [0] * num_cones
+                poi_counts = [0] * num_cones
+                poi_densities = [0] * num_cones
+                agent_counts = [0] * num_cones
+                agent_densities = [0] * num_cones
 
                 # Count POIs within observation radius and cones
                 for poi in self.pois:
@@ -328,11 +331,8 @@ class MORoverEnv:
                     if distance <= obs_radius:
                         angle = math.degrees(math.atan2(dy, dx)) % 360
                         cone_index = int(angle // cone_angle)
-                        poi_observations[cone_index] += 1
-
-                # Normalise the POI readings
-                for i in range(len(poi_observations)):
-                    poi_observations[i] /= len(self.pois)
+                        poi_counts[cone_index] += 1
+                        poi_densities[cone_index] += math.exp(-distance/self.poi_obs_temp)
 
                 # Count other agents within observation radius and cones
                 for other_idx, other_pos in enumerate(rover_locations):
@@ -345,15 +345,33 @@ class MORoverEnv:
                     if distance <= obs_radius:
                         angle = math.degrees(math.atan2(dy, dx)) % 360
                         cone_index = int(angle // cone_angle)
-                        agent_observations[cone_index] += 1
+                        agent_counts[cone_index] += 1
+                        agent_densities[cone_index] += math.exp(-distance/self.agent_obs_temp)
+                
+                # Average the poi densities
+                for cone_idx in range(len(poi_densities)):
+                    poi_densities[cone_idx] = poi_densities[cone_idx] / poi_counts[cone_idx] if poi_counts[cone_idx] > 0 else 0
+                
+                # Average the agent densities
+                for cone_idx in range(len(agent_densities)):
+                    agent_densities[cone_idx] = agent_densities[cone_idx] / agent_counts[cone_idx] if agent_counts[cone_idx] > 0 else 0
+                
+                # Normalise the POI count
+                for i in range(len(poi_counts)):
+                    poi_counts[i] /= len(self.pois)
 
                 # Normalise the agent count
-                for i in range(len(agent_observations)):
-                    agent_observations[i] /= len(rover_locations)
+                for i in range(len(agent_counts)):
+                    agent_counts[i] /= len(rover_locations)
 
                 # Add counts to observations
-                observation.extend(poi_observations)
-                observation.extend(agent_observations)
+                if self.observation_mode == 'count':
+                    observation.extend(poi_counts)
+                    observation.extend(agent_counts)
+                elif self.observation_mode == 'density':
+                    observation.extend(poi_densities)
+                    observation.extend(agent_densities)
+            
             else:
                 raise NotImplementedError("Observation generation is only implemented for 1D and 2D environments.")
 
