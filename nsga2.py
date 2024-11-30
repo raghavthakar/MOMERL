@@ -74,6 +74,7 @@ class NSGAII:
         self.hidden_size = self.config_data["MHA"]["hidden_size"]
         self.num_heads = self.config_data["Shared"]["roster_size"]
         self.num_teams_formed_each_MHA = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
+        self.crossover_eta = 15
 
 
         # self.actor_hidden_size = self.config_data['MHA']['hidden_size']
@@ -97,6 +98,42 @@ class NSGAII:
         """
         mha.id = self.next_id
         self.next_id += 1
+    
+    def crossover_policies(self, x1, x2):
+        if not isinstance(x1, mha.MultiHeadActor) or not isinstance(x2, mha.MultiHeadActor):
+            raise ValueError("Parents must be MultiHeadActors for crossover!")
+        
+        # Create deep copies of the parent policies to serve as offspring
+        y1 = copy.deepcopy(x1)
+        y2 = copy.deepcopy(x2)
+
+        with torch.no_grad():
+            # Iterate over parameters (weights and biases) of the policies
+            for param_x1, param_x2, param_y1, param_y2 in zip(
+                x1.parameters(), x2.parameters(), y1.parameters(), y2.parameters()
+            ):
+                p1 = param_x1.data
+                p2 = param_x2.data
+
+                # Generate random numbers u between 0 and 1
+                u = torch.rand_like(p1)
+
+                # Compute beta_q using the SBX formula
+                beta_q = torch.where(
+                    u <= 0.5,
+                    (2 * u) ** (1.0 / (self.crossover_eta + 1)),
+                    (1 / (2 * (1 - u))) ** (1.0 / (self.crossover_eta + 1)),
+                )
+
+                # Generate offspring parameters
+                child1 = 0.5 * ((1 + beta_q) * p1 + (1 - beta_q) * p2)
+                child2 = 0.5 * ((1 - beta_q) * p1 + (1 + beta_q) * p2)
+
+                # Assign the new parameters to the offspring policies
+                param_y1.data.copy_(child1)
+                param_y2.data.copy_(child2)
+
+        return y1, y2
 
     def mutate_policy(self, policy):
         """
@@ -106,23 +143,47 @@ class NSGAII:
         - policy (MultiHeadActor): Neural network policy
         """
         policy.mutate(self.noise_mean, self.noise_std)
-        self._give_mha_id(policy)
     
-    def make_new_pop(self, rosters):
+    def make_new_pop(self, rosters, scores_dict):
         """
-        Creates mutated offspring population from the parent. Deepcopy when using this as it mutates the input
+        Creates mutated offspring population from the parent. Deepcopy when using this as it mutates the input.
 
         Parameters:
         - rosters (list of MultiHeadActors)
+        - scores_dict (mha_d:borda_score dictionary)
 
         Returns:
-        - new_pop (list of MultiHeadActors): List of perturbed MultiHeadActors
+        - new_pop (list of MultiHeadActors): List of offspring MultiHeadActors after crossover and mutation
         """
         new_pop = []
 
-        for mha in rosters:
-            self.mutate_policy(mha)
-            new_pop.append(mha)
+        # Simply mutate parent set in the first generation
+        if scores_dict is None:
+            for mha in rosters:
+                offspring = copy.deepcopy(mha)
+                self.mutate_policy(offspring)
+                self._give_mha_id(offspring)
+                new_pop.append(offspring)
+
+        # If roster scores are available
+        else:
+            while len(new_pop) < (self.popsize // 2):
+                roster1, roster2 = random.sample(rosters, 2)
+                parent1 = roster1 if scores_dict[roster1.id] > scores_dict[roster2.id] else roster2
+                
+                roster1, roster2 = random.sample(rosters, 2)
+                parent2 = roster1 if scores_dict[roster1.id] > scores_dict[roster2.id] else roster2
+
+                offspring1, offspring2 = self.crossover_policies(parent1, parent2)
+                
+                self.mutate_policy(offspring1)
+                self._give_mha_id(offspring1)
+                
+                self.mutate_policy(offspring2)
+                self._give_mha_id(offspring2)
+
+                new_pop.extend([offspring1, offspring2])
+
         return new_pop
     
     def form_teams_for_mha(self, mha):
@@ -214,6 +275,8 @@ class NSGAII:
         champ_mha, champ_team = self.get_roster_for_RL(all_fitnesses, all_rosters)
         print("MHA id selected:", champ_mha.id)
         print("Team picked", champ_team)
+
+        scores_dict = None
         
         if(self.offspring is None):
             remaining_mhas = [ros.mha for ros in all_rosters]
@@ -243,7 +306,7 @@ class NSGAII:
                 print("Second Fitnesses for mha id:", ros.super_id, ros.fitnesses)
         
         self.parent = remaining_mhas
-        self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
+        self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas), scores_dict)
         
         #return (copy.deepcopy(champ_mha), copy.deepcopy(champ_team))
         copied_champ_mha = copy.deepcopy(champ_mha)
