@@ -19,7 +19,7 @@ class MHAWrapper():
         
 
 class NSGAII:
-    def __init__(self, alg_config_filename, rover_config_filename, state_size=10, num_actions=2):
+    def __init__(self, alg_config_filename, rover_config_filename, replay_buffers):
         """
         Parameters:
         - state_size (int): Size of input to neural network policy, which is the number of states
@@ -36,21 +36,22 @@ class NSGAII:
         self._read_config()
 
         # MERL hidden size is 100
+        self.team_size = self.interface.get_team_size()
         assert self.num_heads >= self.team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert self.popsize % 2 == 0, "population size should be even"
 
         # self.popsize = popsize
         # self.noise_std = noise_std
         # self.noise_mean = noise_mean
-        self.state_size = state_size
-        self.num_actions = num_actions
+        self.state_size = self.interface.get_state_size()
+        self.num_actions = self.interface.get_action_size()
         # self.hidden_size = hidden_size
         # self.num_heads = num_heads
         # self.team_size = team_size
-        self.parent = [mha.MultiHeadActor(state_size, num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
+        self.parent = [mha.MultiHeadActor(self.state_size, self.num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
-        self.replay_buffers = [replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
+        self.replay_buffers = replay_buffers#[replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
 
         # self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
 
@@ -72,7 +73,6 @@ class NSGAII:
         self.noise_mean = self.config_data["NSGAII"]["noise_mean"]
         self.hidden_size = self.config_data["MHA"]["hidden_size"]
         self.num_heads = self.config_data["Shared"]["roster_size"]
-        self.team_size = self.config_data["Shared"]["team_size"]
         self.num_teams_formed_each_MHA = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
 
 
@@ -105,19 +105,7 @@ class NSGAII:
         Parameters:
         - policy (MultiHeadActor): Neural network policy
         """
-        noise_weight = [] # for debugging
-        noise_bias = [] # for debugging
-        with torch.no_grad():
-            for layer in policy.children():
-                if hasattr(layer, "weight"):
-                    noise = self.noise_mean + torch.randn_like(layer.weight) * self.noise_std
-                    noise_weight.append(noise)
-                    layer.weight.data += noise
-                
-                if hasattr(layer, "bias"):
-                    noise_b = self.noise_mean + torch.randn_like(layer.bias) * self.noise_std
-                    noise_bias.append(noise_b)
-                    layer.bias.data += noise_b
+        policy.mutate(self.noise_mean, self.noise_std)
         self._give_mha_id(policy)
     
     def make_new_pop(self, rosters):
@@ -189,13 +177,29 @@ class NSGAII:
     
         return {k: v for k, v in sorted(scores_dict.items(), key=lambda item: item[1], reverse=True)} # sorting the values of scores_dict based on the scores (value of each entry)
 
+    def get_roster_for_RL(self, all_fitnesses, all_rosters):
+        print("allfits:", all_fitnesses)
+        non_dom_lst = pg.non_dominated_front_2d(points=all_fitnesses).tolist()
+        print("nondomlist:",non_dom_lst)
+        team_picked = random.choice(non_dom_lst) # this is the index because non_dom_lst uses args
+        print("team_picked:", team_picked)
+
+        for ros in all_rosters:
+            print("this ros.indices from lst", ros.super_id, "vals:", ros.indices_from_fitness_lst)
+            if(team_picked in ros.indices_from_fitness_lst):
+                print("mha is found in roster func, id:", ros.super_id)
+                print("indices in fitness:",ros.indices_from_fitness_lst)
+                print("team_indices", ros.team_indices)
+                print("index to grab from team", team_picked - ros.indices_from_fitness_lst[0])
+                return (ros.mha, ros.team_indices[team_picked - ros.indices_from_fitness_lst[0]]) # getting the index value of team_indices by subtracting the current value by the first value in the list
 
     def evolve_pop(self, print_fitness=False):
         """
         Completes one generation of NSGA2 (combine offspring + parent, sort, retain best, and create offspring)
 
         Returns:
-        - parent (list of MultiHeadActors): List of the parent population's policies for the next generation
+        - champ_mha (MultiHeadActor): A roster from which a team when evaluated was on the Pareto Front
+        - champ_team (list of ints): A list of the heads of the roster that are active (list of ints)
         """
         r_set = self.parent + (self.offspring or [])
         print("length of r_set is", len(r_set))
@@ -206,11 +210,16 @@ class NSGAII:
 
         all_fitnesses = self.evaluate_fitnesses(all_rosters) # indices_from_fitness_lst are also added to each MHA here
         # time to sort these fitnesses
+
+        champ_mha, champ_team = self.get_roster_for_RL(all_fitnesses, all_rosters)
+        print("MHA id selected:", champ_mha.id)
+        print("Team picked", champ_team)
         
         if(self.offspring is None):
             remaining_mhas = [ros.mha for ros in all_rosters]
         else:
             # print(all_fitnesses)
+            
             front_crowd_sort = pg.sort_population_mo(points=all_fitnesses)
 
             scores_dict = self.find_best_rosters(front_crowd_sort, all_rosters)
@@ -236,7 +245,11 @@ class NSGAII:
         self.parent = remaining_mhas
         self.offspring = self.make_new_pop(copy.deepcopy(remaining_mhas))
         
-        return self.parent
+        #return (copy.deepcopy(champ_mha), copy.deepcopy(champ_team))
+        copied_champ_mha = copy.deepcopy(champ_mha)
+        self._give_mha_id(copied_champ_mha)
+
+        return (copied_champ_mha, copy.deepcopy(champ_team))
 
     def add_traj_to_rep_buff(self, traj, active_agents_indices):
         for agent_idx in active_agents_indices:
@@ -290,15 +303,21 @@ class NSGAII:
 
 
 if __name__ == "__main__":
-    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
+    r_buffs = [replay_buffer.ReplayBuffer("/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MARMOTConfig.yaml") for _ in range(2)]
+    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MORoverEnvConfig.yaml", replay_buffers=r_buffs)
 
     print_fits = True
-    for i in range(100):
+    for i in range(5000):
         print("Generation:", i)
         evo.evolve_pop(print_fitness=True)
+        print()
+    
+    for mha in evo.parent:
+        print()
+        print(evo.interface.rollout(mha, [0,1]))
     print("done")
 
-    print(evo.next_id)
+    #print(evo.next_id)
 
     # for i in range(100):
     #     print("Gen", i)

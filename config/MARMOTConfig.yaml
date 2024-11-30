@@ -1,3 +1,6 @@
+Meta:
+  num_gens: 3
+
 NSGAII:
   popsize: 16
   noise_std: 0.3
@@ -19,4 +22,3 @@ ReplayBuffer:
 
 Shared:
   roster_size: 6
-  team_size: 3

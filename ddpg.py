@@ -11,9 +11,9 @@ from multiheaded_actor import MultiHeadActor
 from DDPGCritic import Critic
 from ReplayBuffer import ReplayBuffer
 
-np.random.seed(2024)
-torch.manual_seed(2024)
-random.seed(2024)
+# np.random.seed(2024)
+# torch.manual_seed(2024)
+# random.seed(2024)
 
 criterion = nn.MSELoss()
 
@@ -29,7 +29,7 @@ def soft_update(target, source, tau):
         )
 
 class DDPG:
-    def __init__(self, alg_config_filename, rover_config_filename, init_target_policy):
+    def __init__(self, alg_config_filename, rover_config_filename, init_target_policy, replay_buffers):
         # Initialise the test domain
         self.interface = MORoverInterface(rover_config_filename)
 
@@ -41,7 +41,7 @@ class DDPG:
         self.main_critics = []
         self.target_critics = []
         self.main_critic_optims = []
-        self.replay_buffers = []
+        self.replay_buffers = replay_buffers
 
         for i in range(self.roster_size):
             self.main_critics.append(Critic(self.interface.get_state_size(), self.interface.get_action_size(), self.critic_hidden_size))
@@ -50,8 +50,6 @@ class DDPG:
             hard_update(self.target_critics[i], self.main_critics[i])
 
             self.main_critic_optims.append(torch.optim.Adam(self.main_critics[-1].parameters(), lr=self.critic_lr))
-
-            self.replay_buffers.append(ReplayBuffer(10000))
         
         # one main and target policy
         # self.main_policy = MultiHeadActor(self.interface.get_state_size(), self.interface.get_action_size(), self.actor_hidden_size, self.roster_size)
@@ -96,7 +94,7 @@ class DDPG:
                     self.replay_buffers[agent_idx].add(transition)
 
 
-    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, num_samples=100):
+    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, num_samples=100) -> MultiHeadActor:
         # perform rollouts with noisy version of this policy and update the replay buffer with experiences
         self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=num_episodes)
 
@@ -170,7 +168,8 @@ class DDPG:
         # Soft update the target policy after roster has been updated using all agents' experiences
         soft_update(self.target_policy, roster, self.tau)
 
-        # print(self.interface.rollout(self.main_policy, [0]))
+        # return the updated roster
+        return roster
 
 if __name__ == "__main__":
     mha = MultiHeadActor(10, 2, 125, 2)

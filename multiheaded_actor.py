@@ -19,14 +19,24 @@ class MultiHeadActor(nn.Module):
         self.linear1 = nn.Linear(num_state_inputs, hidden_size)
         self.linear2 = nn.Linear(hidden_size, hidden_size)
 
+        # Individual layers
+
         # Output layer for all heads combined
         self.mean = nn.Linear(hidden_size, num_actions * num_heads)
 
         # Log standard deviation as a learnable parameter for each action dimension and head
-        self.log_std = nn.Parameter(torch.zeros(num_actions * num_heads))
+        # self.log_std = nn.Parameter(torch.zeros(num_actions * num_heads))
 
         # Initialize weights
-        self.apply(self._weights_init)
+        #self.apply(self._weights_init)
+
+        self.weight_init_lim = 0.2
+        self.bias_init_lim = 0
+
+        self.last_layer_weight_red_factor = 0.1 # used for mutation of last layer + intialization of neural net
+        self.last_layer_bias_red_factor = 0.1 # used for mutation of last layer + intialization of neural net
+
+        self.reset_parameters()
 
         self.id = mha_id
 
@@ -176,3 +186,30 @@ class MultiHeadActor(nn.Module):
         mean_abs_values = [torch.mean(torch.abs(param)).item() for param in parameters]
         mean = sum(mean_abs_values) / len(mean_abs_values)
         return minimum, maximum, mean
+
+    def reset_parameters(self):
+        for layer in self.children():
+            if hasattr(layer, "weight"):
+                nn.init.uniform_(layer.weight, -self.weight_init_lim, self.weight_init_lim) if layer != self.mean else nn.init.uniform_(layer.weight, -self.weight_init_lim * self.last_layer_weight_red_factor, self.weight_init_lim * self.last_layer_weight_red_factor)
+            
+            if hasattr(layer, "bias"):
+                nn.init.uniform_(layer.bias, -self.bias_init_lim, self.bias_init_lim) if layer != self.mean else nn.init.uniform(layer.bias, -self.bias_init_lim * self.last_layer_bias_red_factor, self.bias_init_lim * self.last_layer_bias_red_factor)
+            
+
+    def mutate(self, noise_mean, noise_std):
+        """
+        Mutates a given policy by adding noise to weights according to the std dev + mean noise params
+
+        Parameters:
+        - policy (MultiHeadActor): Neural network policy
+        """
+
+        with torch.no_grad():
+            for layer in self.children():
+                if hasattr(layer, "weight"):
+                    noise = noise_mean + torch.randn_like(layer.weight) * noise_std if layer != self.mean else noise_mean + torch.randn_like(layer.weight) * (noise_std * self.last_layer_weight_red_factor)
+                    layer.weight.data += noise
+                
+                if hasattr(layer, "bias"):
+                    noise_b = noise_mean + torch.randn_like(layer.bias) * noise_std if layer != self.mean else noise_mean + torch.randn_like(layer.bias) * (noise_std * self.last_layer_bias_red_factor)
+                    layer.bias.data += noise_b
