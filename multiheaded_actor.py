@@ -8,7 +8,7 @@ class MultiHeadActor(nn.Module):
     Each head represents actions for a specific policy or agent.
     """
 
-    def __init__(self, num_state_inputs, num_actions, hidden_size, num_heads, mha_id=-1):
+    def __init__(self, num_state_inputs, num_actions, hidden_size, num_heads, mha_id=-1, agent_layer_size=10):
         super(MultiHeadActor, self).__init__()
 
         self.num_heads = num_heads
@@ -20,15 +20,15 @@ class MultiHeadActor(nn.Module):
         self.linear2 = nn.Linear(hidden_size, hidden_size)
 
         # Individual layers
-
-        # Output layer for all heads combined
-        self.mean = nn.Linear(hidden_size, num_actions * num_heads)
-
-        # Log standard deviation as a learnable parameter for each action dimension and head
-        # self.log_std = nn.Parameter(torch.zeros(num_actions * num_heads))
+        self.agent_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(hidden_size, agent_layer_size),
+                nn.Tanh(),
+                nn.Linear(agent_layer_size, num_actions)
+            ) for _ in range(num_heads)
+        ])
 
         # Initialize weights
-        #self.apply(self._weights_init)
 
         self.weight_init_lim = 0.2
         self.bias_init_lim = 0
@@ -69,16 +69,17 @@ class MultiHeadActor(nn.Module):
             action (tensor): The computed action(s).
         """
         x = self.forward(state)
-        # Scale actions to [-1, 1] range using tanh
-        mean_output = torch.tanh(self.mean(x))
-
+        # now we need to go through the agent-specific layers
         if head == -1:
-            # Return actions from all heads (num_heads x num_actions)
-            return mean_output
+            actions = []
+            for agnt_layer in self.agent_layers:
+                act = agnt_layer(x)
+                actions.append(act)
+            
+            return torch.cat(actions)        
         elif 0 <= head < self.num_heads:
-            start = head * self.num_actions
-            end = start + self.num_actions
-            return mean_output[start:end]
+            act = self.agent_layers[head](x)
+            return act
         else:
             raise IndexError(f"Head index {head} is out of range for {self.num_heads} heads.")
         
