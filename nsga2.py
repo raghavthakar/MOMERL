@@ -105,19 +105,7 @@ class NSGAII:
         Parameters:
         - policy (MultiHeadActor): Neural network policy
         """
-        noise_weight = [] # for debugging
-        noise_bias = [] # for debugging
-        with torch.no_grad():
-            for layer in policy.children():
-                if hasattr(layer, "weight"):
-                    noise = self.noise_mean + torch.randn_like(layer.weight) * self.noise_std
-                    noise_weight.append(noise)
-                    layer.weight.data += noise
-                
-                if hasattr(layer, "bias"):
-                    noise_b = self.noise_mean + torch.randn_like(layer.bias) * self.noise_std
-                    noise_bias.append(noise_b)
-                    layer.bias.data += noise_b
+        policy.mutate(self.noise_mean, self.noise_std)
         self._give_mha_id(policy)
     
     def make_new_pop(self, rosters):
@@ -315,16 +303,21 @@ class NSGAII:
 
 
 if __name__ == "__main__":
-    r_buffs = [replay_buffer.ReplayBuffer("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml") for _ in range(6)]
-    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml", replay_buffers=r_buffs)
+    r_buffs = [replay_buffer.ReplayBuffer("/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MARMOTConfig.yaml") for _ in range(2)]
+    evo = NSGAII(alg_config_filename="/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MARMOTConfig.yaml", rover_config_filename="/Users/sidd/Desktop/ijcai25/marmot_combine/MOMERL/config/MORoverEnvConfig.yaml", replay_buffers=r_buffs)
 
     print_fits = True
-    for i in range(100):
+    for i in range(5000):
         print("Generation:", i)
         evo.evolve_pop(print_fitness=True)
+        print()
+    
+    for mha in evo.parent:
+        print()
+        print(evo.interface.rollout(mha, [0,1]))
     print("done")
 
-    print(evo.next_id)
+    #print(evo.next_id)
 
     # for i in range(100):
     #     print("Gen", i)
