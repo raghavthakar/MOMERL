@@ -12,6 +12,7 @@ Environment:
   observation_mode: 'density' # Options: 'count' or 'density'
   poi_obs_temp: 5 # Temp if density observation mode
   agent_obs_temp: 5 # Temp if density observation mode
+  include_location_in_obs: False # Should the agent know its own position?
 
   # Objectives must start from 0.
   pois:
@@ -33,5 +34,5 @@ Environment:
 Agents:
   starting_locs: [[3, 3], [7, 3]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
   num_sensors: [4, 4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
-  observation_radii: [15, 15]
-  max_step_sizes: [2, 2]
+  observation_radii: [3, 3]
+  max_step_sizes: [1, 1]
