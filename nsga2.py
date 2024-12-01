@@ -40,20 +40,12 @@ class NSGAII:
         assert self.num_heads >= self.team_size, "number of heads of MHA must be gte the number of agents on a team"
         assert self.popsize % 2 == 0, "population size should be even"
 
-        # self.popsize = popsize
-        # self.noise_std = noise_std
-        # self.noise_mean = noise_mean
         self.state_size = self.interface.get_state_size()
         self.num_actions = self.interface.get_action_size()
-        # self.hidden_size = hidden_size
-        # self.num_heads = num_heads
-        # self.team_size = team_size
         self.parent = [mha.MultiHeadActor(self.state_size, self.num_actions, self.hidden_size, self.num_heads, mha_id) for mha_id in range(self.popsize // 2)]
         self.offspring = None
         self.next_id = self.parent[-1].id + 1
-        self.replay_buffers = replay_buffers#[replay_buffer.ReplayBuffer() for _ in range(self.num_heads)]
-
-        # self.num_teams_formed_each_MHA = num_teams_formed_each_MHA
+        self.replay_buffers = replay_buffers
 
         self.all_team_combos = list(more_itertools.distinct_combinations(range(self.num_heads), self.team_size))
         assert len(self.all_team_combos) >= self.num_teams_formed_each_MHA, "There are fewer unique team combinations than the specified number of teams to form"
@@ -75,19 +67,6 @@ class NSGAII:
         self.num_heads = self.config_data["Shared"]["roster_size"]
         self.num_teams_formed_each_MHA = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
         self.crossover_eta = 15
-
-
-        # self.actor_hidden_size = self.config_data['MHA']['hidden_size']
-        # self.actor_lr = self.config_data['DDPG']['actor_lr']
-
-        # self.critic_hidden_size = self.config_data['DDPG']['critic_hidden_size']
-        # self.soft_update_tau = self.config_data['DDPG']['soft_update_tau']
-        # self.critic_value_discount = self.config_data['DDPG']['critic_value_discount']
-        # self.critic_lr = self.config_data['DDPG']['critic_lr']
-        # self.tau = self.config_data['DDPG']['soft_update_tau']
-        # self.discount = self.config_data['DDPG']['critic_value_discount']
-
-        # self.roster_size = self.config_data['Shared']['roster_size']
     
     def _give_mha_id(self, mha):
         """
@@ -200,11 +179,6 @@ class NSGAII:
         indices_to_pick = [np.random.choice(len(self.all_team_combos), size=1, replace=False).tolist()[0] for _ in range(self.num_teams_formed_each_MHA)]
 
         team_list = [self.all_team_combos[i] for i in indices_to_pick]
-        # print(self.all_team_combos)
-        # print(indices_to_pick)
-        # print(team_list)
-        # print("Teams have been picked")
-        #team_list = [np.random.choice(all_team_combos, size=self.num_teams_formed_each_MHA, replace=False).tolist()]
 
         mhainfo = MHAWrapper(mha=mha, team_indices=team_list)
 
@@ -331,9 +305,6 @@ class NSGAII:
         """
         
         # all_rosters is a list of MHAWrappers
-
-        # env = MORoverInterface.MORoverInterface("/Users/sidd/Desktop/ijcai25/fullmomerl/MOMERL/config/MORoverEnvConfig.yaml")
-
         all_fitnesses = []
 
         for roster in all_rosters:
@@ -379,11 +350,3 @@ if __name__ == "__main__":
         print()
         print(evo.interface.rollout(mha, [0,1]))
     print("done")
-
-    #print(evo.next_id)
-
-    # for i in range(100):
-    #     print("Gen", i)
-    #     evo.evolve_pop()
-    #     print()
-    # print("done")
