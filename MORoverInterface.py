@@ -92,6 +92,7 @@ class MORoverInterface():
                 transitions[agent_idx] = {
                     'state': state,
                     'action': action,
+                    'location': agent_locations[agent_idx],
                     'action_log_prob': action_log_prob,
                     'local_reward' : None, # Will be applied later
                     'next_state': [],
@@ -133,7 +134,7 @@ class MORoverInterface():
         '''
         Get the number of inputs to the actor network.
         '''
-        return self.config['Agents']['num_sensors'][0] * 2 + len(self.rover_env.dimensions)
+        return self.config['Agents']['num_sensors'][0] * 2 + len(self.rover_env.dimensions)*int(self.rover_env.include_location_in_obs)
     
     def get_action_size(self):
         '''
