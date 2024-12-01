@@ -147,3 +147,9 @@ class MORoverInterface():
         '''
         # team size is implicitly recorded by the length of starting locations
         return len(self.config['Agents']['starting_locs'])
+    
+    def get_num_objs(self):
+        '''
+        Get the number of objectives in the problem.
+        '''
+        return self.rover_env.num_objs
