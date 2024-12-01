@@ -1,11 +1,11 @@
 Meta:
-  num_gens: 3
+  num_gens: 1000
 
 NSGAII:
-  popsize: 16
-  noise_std: 0.3
-  noise_mean: 0
-  num_teams_formed_each_MHA: 15
+  pop_size: 30
+  policy_mutation_noise_std: 0.2
+  policy_mutation_noise_mean: 0
+  num_teams_formed_each_MHA: 1
 
 DDPG:
   critic_hidden_size: 25
@@ -15,10 +15,10 @@ DDPG:
   actor_lr: 0.0005
 
 MHA:
-  hidden_size: 125
+  hidden_size: 128
 
 ReplayBuffer:
   buffer_size: 10000
 
 Shared:
-  roster_size: 6
+  roster_size: 2

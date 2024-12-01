@@ -56,12 +56,12 @@ class NSGAII:
     def _load_config(self):
         """Load internal NSGAII configuration."""
         self.pop_size = self.config_data["NSGAII"]["pop_size"]
-        self.noise_std = self.config_data["NSGAII"]["noise_std"]
-        self.noise_mean = self.config_data["NSGAII"]["noise_mean"]
+        self.policy_mutation_noise_std = self.config_data["NSGAII"]["policy_mutation_noise_std"]
+        self.policy_mutation_noise_noise_mean = self.config_data["NSGAII"]["policy_mutation_noise_mean"]
         self.hidden_size = self.config_data["MHA"]["hidden_size"]
         self.roster_size = self.config_data["Shared"]["roster_size"]
         self.num_teams_formed_each_roster = self.config_data["NSGAII"]["num_teams_formed_each_MHA"]
-        self.crossover_eta = 15
+        self.crossover_eta = 5
     
     def _crossover_policies(self, x1, x2):
         if not isinstance(x1, mha.MultiHeadActor) or not isinstance(x2, mha.MultiHeadActor):
@@ -106,7 +106,7 @@ class NSGAII:
         Parameters:
         - policy (MultiHeadActor): Neural network policy
         """
-        policy.mutate(self.noise_mean, self.noise_std)
+        policy.mutate(self.policy_mutation_noise_noise_mean, self.policy_mutation_noise_std)
     
     def evolve(self):
         roster_wise_team_combinations = [None for _ in range(self.pop_size)] # Will store all sampled team combinations for all rosters
