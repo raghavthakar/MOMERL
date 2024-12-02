@@ -108,6 +108,13 @@ class NSGAII:
         """
         policy.mutate(self.policy_mutation_noise_noise_mean, self.policy_mutation_noise_std)
     
+    def insert_new_to_pop(self, roster:mha.MultiHeadActor):
+        """
+        Creates a new Roster_Ind with the given roster and inserts it into the population.
+        """
+        offspring = Roster_Ind(roster=roster)
+        self.pop.append(offspring)
+    
     def evolve(self):
         roster_wise_team_combinations = [None for _ in range(self.pop_size)] # Will store all sampled team combinations for all rosters
         roster_wise_team_fitnesses = [None for _ in range(self.pop_size)] # Will store all team fitnesses for all rosters 
@@ -134,10 +141,18 @@ class NSGAII:
             # print("------", len(self.pop), self.pop_size)
             roster_wise_team_combinations[ind_idx] = team_combinations
             roster_wise_team_fitnesses[ind_idx] = team_fitnesses
-        # Flatten the fitnesses for pygmo
+        # Flatten the fitnesses and team combinations for pygmo
         roster_wise_team_fitnesses_fl = list(itertools.chain.from_iterable(roster_wise_team_fitnesses))
+        roster_wise_team_combinations_fl = list(itertools.chain.from_iterable(roster_wise_team_combinations))
         # Sort according to NSGA2
         sorted_teams = pg.sort_population_mo(points=roster_wise_team_fitnesses_fl) # NOTE: better teams first
+
+        # Copy the champion team and its roster for RL updates
+        champion_team_idx = sorted_teams[0]
+        # The roster is the row number in which this team lies
+        champion_roster_idx = champion_team_idx // len(roster_wise_team_combinations[0])
+        champion_roster = copy.deepcopy(self.pop[champion_roster_idx].roster) # NOTE: This is returned by the method
+        champion_team = copy.deepcopy(roster_wise_team_combinations_fl[champion_team_idx]) # NOTE: This is returned by the method
         
         # Perform a Borda count
         for roster_idx in self.pop:
@@ -157,7 +172,7 @@ class NSGAII:
 
         # Create offsprings, leaving 2 empty spots
         offspring_set = []
-        while len(offspring_set) < (self.pop_size//2):
+        while len(offspring_set) < (self.pop_size // 2 - 1):
         # for _ in range(self.pop_size//2 - 2):
             idx1, idx2 = random.sample(range(len(parent_set)), 2) # As the parent set is sorted
             parent1 = parent_set[idx1] if idx1 < idx2 else parent_set[idx2] # Choose the lower index
@@ -172,12 +187,15 @@ class NSGAII:
             offspring2 = Roster_Ind(roster=offspring_roster2)
             
             offspring_set.append(offspring1)
-            if len(offspring_set) < self.pop_size // 2:
+            if len(offspring_set) < self.pop_size // 2 - 1:
                 offspring_set.append(offspring2)
 
         # Set the population as parent_set + offspring_set
         self.pop = parent_set + offspring_set
-        # print("--", len(self.pop), len(parent_set), len(offspring_set))
+
+        champ_list = [x for x in champion_team]
+        
+        return champion_roster, champ_list
 
 
 if __name__ == "__main__":
