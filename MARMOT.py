@@ -5,7 +5,7 @@ import torch
 import random
 
 import ddpg
-import nsga2
+import nsgaii
 import MORoverInterface
 import ReplayBuffer
 
@@ -22,11 +22,11 @@ class MARMOT:
         self.rep_buffs = [ReplayBuffer.ReplayBuffer(alg_config_filename) for _ in range(self.roster_size)] # NOTE: both NSGA and DDPG mutate the replay buffers
 
         # Init the RL and EA instances
-        self.EA = nsga2.NSGAII(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, replay_buffers=self.rep_buffs)
-        chosen_roster, champion_indices = self.EA.evolve_pop()
+        self.EA = nsgaii.NSGAII(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, replay_buffers=self.rep_buffs)
+        chosen_roster, champion_indices = self.EA.evolve()
         self.RL = ddpg.DDPG(alg_config_filename=alg_config_filename, rover_config_filename=rover_config_filename, init_target_policy=chosen_roster, replay_buffers=self.rep_buffs)
         updated_roster = self.RL.update_params(chosen_roster, champion_indices)
-        self.EA.offspring.append(updated_roster)
+        self.EA.insert_new_to_pop(updated_roster)
 
     def _read_config(self):
         """Read and load MARMOT configuration from the YAML file."""
@@ -43,11 +43,11 @@ class MARMOT:
     def run(self):
         for gen in range(self.num_gens):
             print("Generation:", gen)
-            chosen_roster, champion_indices = self.EA.evolve_pop()
+            chosen_roster, champion_indices = self.EA.evolve()
             
             updated_roster = self.RL.update_params(chosen_roster, champion_indices)
-            self.EA.offspring.append(updated_roster)
+            self.EA.insert_new_to_pop(updated_roster)
 
 if __name__ == "__main__":
-    marmot = MARMOT(sys.argv[1], sys.argv[2])
+    marmot = MARMOT('/home/raghav/Research/IJCAI25/MOMERL/config/MARMOTConfig.yaml', '/home/raghav/Research/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml')
     marmot.run()
