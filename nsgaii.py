@@ -127,7 +127,11 @@ class NSGAII:
                 sampled_team = random.choice(self.all_team_combos) # randomly sampled team tuple
                 # Evaluate this team
                 fitness = [0 for _ in range(self.num_objs)] # Will store this team's fitness
-                _, fitness_dict = self.interface.rollout(ind.roster, sampled_team)
+                ep_traj, fitness_dict = self.interface.rollout(ind.roster, sampled_team)
+                # Add this episode's experiences to the replay buffer
+                for agent_idx in sampled_team:
+                    for transition in ep_traj[agent_idx]:
+                        self.replay_buffers[agent_idx].add(transition)
                 # Store fitness
                 for f in fitness_dict:
                     fitness[f] = -fitness_dict[f] # NOTE: The fitness sign is flipped to match Pygmo convention
