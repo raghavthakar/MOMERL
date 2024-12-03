@@ -92,7 +92,7 @@ class MORoverInterface():
                 transitions[agent_idx] = {
                     'state': state,
                     'action': action,
-                    'location': agent_locations[agent_idx],
+                    'location': agent_locations[i],
                     'action_log_prob': action_log_prob,
                     'local_reward' : None, # Will be applied later
                     'next_state': [],
