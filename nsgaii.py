@@ -163,7 +163,7 @@ class NSGAII:
             roster_idx.reset_borda_points()
         for rank, team_idx in enumerate(sorted_teams):
             if rank < self.pop_size//2:
-                print(roster_wise_team_fitnesses_fl[team_idx])
+                print(roster_wise_team_fitnesses_fl[team_idx], team_idx // len(roster_wise_team_combinations[0]))
             # The roster is the row number in which this team lies
             roster_idx = team_idx // len(roster_wise_team_combinations[0])
             # Assign points to the roster
