@@ -162,8 +162,8 @@ class NSGAII:
         for roster_idx in self.pop:
             roster_idx.reset_borda_points()
         for rank, team_idx in enumerate(sorted_teams):
-            if rank < self.pop_size//2:
-                print(roster_wise_team_fitnesses_fl[team_idx], team_idx // len(roster_wise_team_combinations[0]))
+            # if rank < self.pop_size//2:
+            print(roster_wise_team_fitnesses_fl[team_idx], team_idx // len(roster_wise_team_combinations[0]))
             # The roster is the row number in which this team lies
             roster_idx = team_idx // len(roster_wise_team_combinations[0])
             # Assign points to the roster
@@ -196,6 +196,7 @@ class NSGAII:
 
         # Set the population as parent_set + offspring_set
         self.pop = parent_set + offspring_set
+        random.shuffle(self.pop) # NOTE: This is so that equally dominnat offpsrings in later indices don't just get thrown out
 
         champ_list = [x for x in champion_team]
         
