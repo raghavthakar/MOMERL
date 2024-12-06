@@ -94,7 +94,7 @@ class DDPG:
                     self.replay_buffers[agent_idx].add(transition)
 
 
-    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=80, batch_size=100, num_grad_steps=20) -> MultiHeadActor:
+    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=24, batch_size=100, num_grad_steps=20) -> MultiHeadActor:
         # perform rollouts with noisy version of this policy and update the replay buffer with experiences
         self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=num_episodes)
 
@@ -163,7 +163,7 @@ class DDPG:
                 for param in self.main_critics[agent_idx].parameters():
                     param.requires_grad = True
                 
-                print("Agent: ", agent_idx, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
+                # print("Agent: ", agent_idx, "Main Policy Loss", main_policy_loss.item(), "Critic Loss", main_critic_loss.item())
 
                 soft_update(self.target_critics[agent_idx], self.main_critics[agent_idx], self.tau)
             

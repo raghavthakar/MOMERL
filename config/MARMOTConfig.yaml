@@ -1,8 +1,8 @@
 Meta:
-  num_gens: 1000
+  num_gens: 200
 
 NSGAII:
-  pop_size: 30
+  pop_size: 24
   policy_mutation_noise_std: 0.2
   policy_mutation_noise_mean: 0
   num_teams_formed_each_MHA: 1
@@ -21,4 +21,4 @@ ReplayBuffer:
   buffer_size: 10000
 
 Shared:
-  roster_size: 2
+  roster_size: 3
