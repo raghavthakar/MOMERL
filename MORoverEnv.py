@@ -245,7 +245,7 @@ class MORoverEnv:
             new_location = []
             for i, (coord, delta_i, max_dim) in enumerate(zip(loc, delta, self.dimensions)):
                 updated_coord = coord + delta_i
-                updated_coord = max(0, min(updated_coord, max_dim - 1))  # Enforce boundaries
+                updated_coord = max(0, min(updated_coord, max_dim))  # Enforce boundaries
                 new_location.append(updated_coord)
 
             updated_locations.append(new_location)
