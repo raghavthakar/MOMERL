@@ -2,8 +2,8 @@ Meta:
   num_objs: 3
 
 Environment:
-  dimensions: [10, 17]
-  ep_length: 12  # episode length
+  dimensions: [10, 20]
+  ep_length: 9  # episode length
   timestep_penalty: 0
   global_reward_mode: "Aggregated"  # Options: "Aggregated", "Final"
   local_reward_mode: "exponential" # Options: inverse_distance, exponential
@@ -38,21 +38,21 @@ Environment:
       reward: 4
       repeat: False
     - obj: 0
-      location: [1, 11]
+      location: [1, 14]
       radius: 1
       coupling: 1
       obs_window: [0, 90]
       reward: 4
       repeat: False
     - obj: 1
-      location: [5, 11]
+      location: [5, 14]
       radius: 1
       coupling: 1
       obs_window: [0, 90]
       reward: 4
       repeat: False
     - obj: 2
-      location: [9, 11]
+      location: [9, 14]
       radius: 1
       coupling: 1
       obs_window: [0, 90]
@@ -60,7 +60,7 @@ Environment:
       repeat: False
 
 Agents:
-  starting_locs: [[5, 1], [5, 16]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
+  starting_locs: [[5, 1], [5, 19]] #Remember, the dimensionality of this influences the state input size. Length determines team size!!!
   num_sensors: [4, 4] # Remember, these many sensors for detecting pois + these many sensors for detecting other agents
   observation_radii: [3, 3]
   max_step_sizes: [1, 1]
