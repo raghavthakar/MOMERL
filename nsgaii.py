@@ -15,7 +15,7 @@ np.random.seed(2024)
 random.seed(2024)
 
 class Roster_Ind:
-    def __init__(self, state_size=10, num_actions=2, hidden_size=80, num_heads=4, roster=None):
+    def __init__(self, state_size, num_actions, hidden_size, num_heads, roster=None):
         if roster is None:
             self.roster = mha.MultiHeadActor(state_size, num_actions, hidden_size, num_heads)
         else:
@@ -111,8 +111,11 @@ class NSGAII:
     def insert_new_to_pop(self, roster:mha.MultiHeadActor):
         """
         Creates a new Roster_Ind with the given roster and inserts it into the population.
+        Will create a random offspring if roster is None
         """
-        offspring = Roster_Ind(roster=roster)
+        offspring = Roster_Ind(state_size=self.state_size, num_actions=self.num_actions, 
+                               hidden_size=self.hidden_size, num_heads=self.roster_size, roster=roster)
+        
         self.pop.append(offspring)
     
     def evolve(self):
@@ -187,8 +190,10 @@ class NSGAII:
             self._mutate_policy_in_place(offspring_roster1)
             self._mutate_policy_in_place(offspring_roster2)
             # Create new Roster_Inds with offspring policies
-            offspring1 = Roster_Ind(roster=offspring_roster1)
-            offspring2 = Roster_Ind(roster=offspring_roster2)
+            offspring1 = Roster_Ind(state_size=self.state_size, num_actions=self.num_actions,
+                                    hidden_size=self.hidden_size, num_heads=self.roster_size, roster=offspring_roster1)
+            offspring2 = Roster_Ind(state_size=self.state_size, num_actions=self.num_actions,
+                                    hidden_size=self.hidden_size, num_heads=self.roster_size, roster=offspring_roster2)
             
             offspring_set.append(offspring1)
             if len(offspring_set) < self.pop_size // 2 - 1:

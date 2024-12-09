@@ -16,17 +16,17 @@ class MultiHeadActor(nn.Module):
         self.hidden_size = hidden_size
 
         # Shared trunk layer
-        self.linear1 = nn.Linear(num_state_inputs, hidden_size)
+        self.linear1 = nn.Linear(num_state_inputs, self.hidden_size)
 
         # Per-head layers: Each head has its own hidden layer and output layer
         self.per_head_layers = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(hidden_size, hidden_size//4),
+                nn.Linear(self.hidden_size, self.hidden_size//4),
                 nn.ReLU(),
-                nn.Linear(hidden_size//4, hidden_size//4),
+                nn.Linear(self.hidden_size//4, self.hidden_size//4),
                 nn.ReLU(),
-                nn.Linear(hidden_size//4, num_actions)
-            ) for _ in range(num_heads)
+                nn.Linear(self.hidden_size//4, self.num_actions)
+            ) for _ in range(self.num_heads)
         ])
 
         self.reset_parameters()
