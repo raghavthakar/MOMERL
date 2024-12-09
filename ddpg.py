@@ -79,6 +79,10 @@ class DDPG:
         self.tau = self.config_data['DDPG']['soft_update_tau']
         self.discount = self.config_data['DDPG']['critic_value_discount']
 
+        self.num_episodes=self.config_data['DDPG']['num_rollouts']
+        self.batch_size=self.config_data['DDPG']['batch_size']
+        self.num_grad_steps=self.config_data['DDPG']['num_grad_steps']
+
         self.roster_size = self.config_data['Shared']['roster_size']
 
     def collect_trajectory(self, policy, active_agents_indices, num_episodes):
@@ -94,16 +98,20 @@ class DDPG:
                     self.replay_buffers[agent_idx].add(transition)
 
 
-    def update_params(self, roster: MultiHeadActor, active_agents_indices: list, num_episodes=24, batch_size=100, num_grad_steps=20) -> MultiHeadActor:
+    def update_params(self, roster: MultiHeadActor, active_agents_indices: list) -> MultiHeadActor:
+        '''
+        Returns an RL updated roster (not deepcopy) if RL can be performed.
+        Else returns NONE.
+        '''
         # perform rollouts with noisy version of this policy and update the replay buffer with experiences
-        self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=num_episodes)
+        self.collect_trajectory(policy=roster, active_agents_indices=active_agents_indices, num_episodes=self.num_episodes)
 
-        total_grad_steps = num_grad_steps // len(active_agents_indices)
+        total_grad_steps = self.num_grad_steps // len(active_agents_indices)
         for _ in range(total_grad_steps): # NOTE: One backprop = 1 grad step
             for agent_idx in active_agents_indices:
-                sampled_trans = self.replay_buffers[agent_idx].sample_transitions(num_samples=batch_size)
+                sampled_trans = self.replay_buffers[agent_idx].sample_transitions(num_samples=self.batch_size)
                 if sampled_trans is None:
-                    return
+                    return  # NOTE: does not return anything if we cannot perform RL
 
                 y_vals = []
                 main_critic_predicted_vals = []
