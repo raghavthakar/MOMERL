@@ -1,0 +1,27 @@
+Meta:
+  num_gens: 1800
+
+NSGAII:
+  pop_size: 24
+  policy_mutation_noise_std: 0.2
+  policy_mutation_noise_mean: 0
+  num_teams_formed_each_MHA: 1
+
+DDPG:
+  critic_hidden_size: 25
+  soft_update_tau: 0.005
+  critic_value_discount: 0.999
+  critic_lr: 0.001
+  actor_lr: 0.0005
+  num_rollouts: 24
+  batch_size: 432
+  num_grad_steps: 24
+
+MHA:
+  hidden_size: 128
+
+ReplayBuffer:
+  buffer_size: 8640
+
+Shared:
+  roster_size: 2
