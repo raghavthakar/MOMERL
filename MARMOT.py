@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import random
 from datetime import datetime
+import pypickle
 
 import ddpg
 import nsgaii
@@ -19,10 +20,11 @@ class MARMOT:
     def __init__(self, alg_config_filename, rover_config_filename, data_filename):
         self.config_filename = alg_config_filename
         self.rover_config_filename = rover_config_filename
+        self.data_filename = data_filename
         self._read_config()
 
         # Set up a data logger
-        self.data_logger = DataLogger.DataLogger(data_filename)
+        self.data_logger = DataLogger.DataLogger(self.data_filename+'_gen_data.ndjson')
         self.data_logger.straight_write('marmot_config', self.config_data)
         self.data_logger.straight_write('env_config', self.rover_config_data)
 
@@ -63,6 +65,9 @@ class MARMOT:
                 "generation" : gen,
                 "fitnesses" : roster_wise_team_fits,
             })
+            # pickle and save the roster in the last gen
+            if gen == self.num_gens - 1:
+                pypickle.save(self.data_filename+'_final_pop.pkl', pop)
             updated_roster = self.RL.update_params(chosen_roster, champion_indices)
             self.EA.insert_new_to_pop(updated_roster)
 
@@ -70,5 +75,5 @@ if __name__ == "__main__":
     now = datetime.now()
     marmot = MARMOT('/home/raghav/Research/IJCAI25/MOMERL/config/MARMOTConfig.yaml',
                     '/home/raghav/Research/IJCAI25/MOMERL/config/MORoverEnvConfig.yaml',
-                    '/home/raghav/Research/IJCAI25/MOMERL/experiments/data/'+now.strftime("%Y-%m-%d %H:%M:%S")+'.ndjson')
+                    '/home/raghav/Research/IJCAI25/MOMERL/experiments/data/'+now.strftime("%Y-%m-%d %H:%M:%S"))
     marmot.run()
