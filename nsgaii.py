@@ -146,8 +146,12 @@ class NSGAII:
             # Insert the team combination and team fitness
             # NOTE: Index at which these are added is the index of their roster in the population
             # print("------", len(self.pop), self.pop_size)
-            roster_wise_team_combinations[ind_idx] = team_combinations
-            roster_wise_team_fitnesses[ind_idx] = team_fitnesses
+            roster_wise_team_combinations[ind_idx] = team_combinations # NOTE: This is returned by the method 
+            roster_wise_team_fitnesses[ind_idx] = team_fitnesses # NOTE: This is returned by the method
+        
+        # Organise the objects to return from this function
+        returnable_objects = [copy.deepcopy(self.pop), copy.deepcopy(roster_wise_team_combinations), copy.deepcopy(roster_wise_team_fitnesses)]
+
         # Flatten the fitnesses and team combinations for pygmo
         roster_wise_team_fitnesses_fl = list(itertools.chain.from_iterable(roster_wise_team_fitnesses))
         roster_wise_team_combinations_fl = list(itertools.chain.from_iterable(roster_wise_team_combinations))
@@ -159,7 +163,11 @@ class NSGAII:
         # The roster is the row number in which this team lies
         champion_roster_idx = champion_team_idx // len(roster_wise_team_combinations[0])
         champion_roster = copy.deepcopy(self.pop[champion_roster_idx].roster) # NOTE: This is returned by the method
-        champion_team = copy.deepcopy(roster_wise_team_combinations_fl[champion_team_idx]) # NOTE: This is returned by the method
+        champion_team = copy.deepcopy(roster_wise_team_combinations_fl[champion_team_idx])
+        champ_list = [x for x in champion_team] # NOTE: This is returned by the method
+        
+        returnable_objects.append(champion_roster)
+        returnable_objects.append(champ_list)
         
         # Perform a Borda count
         for roster_idx in self.pop:
@@ -202,10 +210,8 @@ class NSGAII:
         # Set the population as parent_set + offspring_set
         self.pop = parent_set + offspring_set
         random.shuffle(self.pop) # NOTE: This is so that equally dominnat offpsrings in later indices don't just get thrown out
-
-        champ_list = [x for x in champion_team]
         
-        return champion_roster, champ_list
+        return returnable_objects # pop, roster_team_combinations, roster_team_fitnesses, champion_roster, champion_team_indicies
 
 
 if __name__ == "__main__":
