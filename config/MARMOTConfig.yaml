@@ -21,7 +21,7 @@ MHA:
   hidden_size: 128
 
 ReplayBuffer:
-  buffer_size: 10000
+  buffer_size: 25920
 
 Shared:
   roster_size: 3
