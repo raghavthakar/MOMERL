@@ -14,14 +14,14 @@ DDPG:
   critic_lr: 0.001
   actor_lr: 0.0005
   num_rollouts: 24
-  batch_size: 432
+  batch_size: 480
   num_grad_steps: 24
 
 MHA:
   hidden_size: 128
 
 ReplayBuffer:
-  buffer_size: 8640
+  buffer_size: 9600
 
 Shared:
   roster_size: 2
